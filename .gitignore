@@ -155,3 +155,25 @@ vite.config.ts.timestamp-*
 .nx/cache
 .nx/workspace-data
 .nx/migrate-runs
+
+# tonetool outputs (generated from examples/*.musicxml)
+examples/*.piece.json
+examples/*.wav
+examples/*.mp3
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
