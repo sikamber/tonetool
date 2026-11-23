@@ -1,8 +1,8 @@
 """Domain model for a piece.
 
 ``Piece`` is the serialized form (``piece.json``). The MusicXML file is the immutable source
-for notes; everything about *how the piece is performed* (sections, playback order) lives here
-and is the final authority. The importer only produces initial suggestions
+for notes; everything about *how the piece is performed* (the sections, whose order is the
+playback order) lives here and is the final authority. The importer only produces initial suggestions
 (``Provenance.AUTO``); a user edit flips them to ``Provenance.USER``.
 
 Measures are always referenced by 0-based document-order index, never by printed number.
@@ -10,14 +10,15 @@ Measures are always referenced by 0-based document-order index, never by printed
 
 from __future__ import annotations
 
+import json
 import re
 from enum import StrEnum
 from pathlib import Path
-from typing import Self
+from typing import Any, Self
 
 from pydantic import BaseModel, Field, model_validator
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 3
 
 
 class Provenance(StrEnum):
@@ -50,7 +51,9 @@ class Measure(BaseModel):
     number: str  # printed number; may be "0" (pickup), "12a", or repeat across endings
     start: float  # notated offset from the start of the piece, in quarter notes
     length: float  # actual length in quarter notes (pickups are shorter)
-    bpm: float  # quarter-note BPM in effect at the start of the measure
+    # quarter-note BPM of a tempo mark on this measure, or None to keep the previous tempo (in
+    # notated order); see Piece.measure_bpms. The first measure must have one.
+    tempo: float | None = Field(default=None, gt=0)
     beats_per_bar: int = 4
     beat_unit: int = 4  # denominator of the time signature
     # what each voice sings in this measure: exactly one entry per track, keyed by Track.id
@@ -109,33 +112,6 @@ class Track(BaseModel):
     voice: VoiceKind = VoiceKind.OTHER
 
 
-class Section(BaseModel):
-    """A named, inclusive range of notated measures. Used for navigation and looping."""
-
-    id: str
-    name: str
-    start: int
-    end: int
-    source: Provenance = Provenance.AUTO
-
-    @model_validator(mode="after")
-    def _check_range(self) -> Self:
-        """Reject sections whose start is after their end."""
-        if self.start > self.end:
-            raise ValueError(
-                f"section {self.id!r}: start {self.start} > end {self.end}"
-            )
-        return self
-
-    def measures(self) -> range:
-        """Measure indices covered by the section, inclusive."""
-        return range(self.start, self.end + 1)
-
-    def __len__(self) -> int:
-        """Number of measures in the section."""
-        return self.end - self.start + 1
-
-
 class PlaybackSegment(BaseModel):
     """A contiguous run of notated measures, played in order. Inclusive on both ends."""
 
@@ -153,22 +129,24 @@ class PlaybackSegment(BaseModel):
         """Measure indices covered by the segment, inclusive."""
         return range(self.start, self.end + 1)
 
+    def describe(self, measures: list[Measure]) -> str:
+        """Printed bar numbers: '1-4', or '5' for a single bar."""
+        first, last = measures[self.start].number, measures[self.end].number
+        return first if self.start == self.end else f"{first}-{last}"
+
 
 class PlaybackOrder(BaseModel):
     """The performed order of measures, as a flat list of ranges.
 
-    Flat ranges are deliberately dumb: they can express any form (voltas, D.S. al Coda, skipped
-    endings) and are trivial to validate. Editing helpers rewrite the list rather than storing a
-    repeat DSL.
+    Not stored: ``Piece.playback_order`` generates it by playing the sections in order. Flat
+    ranges are deliberately dumb: they can express any form (voltas, D.S. al Coda, skipped
+    endings) and are trivial to validate.
     """
 
     segments: list[PlaybackSegment]
-    source: Provenance = Provenance.AUTO
 
     @classmethod
-    def from_measure_sequence(
-        cls, sequence: list[int], source: Provenance = Provenance.AUTO
-    ) -> Self:
+    def from_measure_sequence(cls, sequence: list[int]) -> Self:
         """Compress e.g. [0,1,2,3,1,2,4] into segments [0-3], [1-2], [4-4]."""
         segments: list[PlaybackSegment] = []
         for index in sequence:
@@ -176,7 +154,7 @@ class PlaybackOrder(BaseModel):
                 segments[-1].end = index
             else:
                 segments.append(PlaybackSegment(start=index, end=index))
-        return cls(segments=segments, source=source)
+        return cls(segments=segments)
 
     @classmethod
     def straight_through(cls, measure_count: int) -> Self:
@@ -199,12 +177,30 @@ class PlaybackOrder(BaseModel):
 
     def describe(self, measures: list[Measure]) -> str:
         """Human-readable form using printed measure numbers, e.g. '1-4 | 2-3 | 5-6'."""
-        return " | ".join(
-            f"{measures[s.start].number}-{measures[s.end].number}"
-            if s.start != s.end
-            else measures[s.start].number
-            for s in self.segments
-        )
+        return " | ".join(segment.describe(measures) for segment in self.segments)
+
+
+class Section(BaseModel):
+    """A named stretch of the performance: one or more notated ranges, played in order.
+
+    ``Piece.sections`` is in performance order, and the playback order is generated by playing
+    every section's segments in turn. Sections hold the bars *as performed*, so the same notated
+    bars can appear in several sections (verses 1 and 2), and a section can end in either of two
+    voltas. Section-specific data (lyrics, say) has a natural home here later.
+    """
+
+    id: str
+    name: str
+    segments: list[PlaybackSegment] = Field(min_length=1)
+    source: Provenance = Provenance.AUTO
+
+    def measure_sequence(self) -> list[int]:
+        """The measure indices of this section in the order they are played."""
+        return [m for segment in self.segments for m in segment.measures()]
+
+    def describe(self, measures: list[Measure]) -> str:
+        """Printed bar numbers of its ranges, e.g. '1-2, 4'."""
+        return ", ".join(segment.describe(measures) for segment in self.segments)
 
 
 class Piece(BaseModel):
@@ -216,18 +212,27 @@ class Piece(BaseModel):
     )
     measures: list[Measure]
     tracks: list[Track]
-    sections: list[Section]
-    playback_order: PlaybackOrder
+    sections: list[Section]  # in performance order; they define the playback order
     warnings: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _check_consistency(self) -> Self:
-        """Check that the playback order, sections, and track ids agree with the measures."""
+        """Check that sections, track ids, and voices agree with the measures."""
         count = len(self.measures)
-        self.playback_order.validate_against(count)
+        if not self.sections:
+            raise ValueError("a piece needs at least one section: they define the playback order")
+        section_ids = [section.id for section in self.sections]
+        if len(set(section_ids)) != len(section_ids):
+            raise ValueError("duplicate section ids")
         for section in self.sections:
-            if section.end >= count:
-                raise ValueError(f"section {section.id!r} outside measure range")
+            for segment in section.segments:
+                if segment.start < 0 or segment.end >= count:
+                    raise ValueError(
+                        f"section {section.id!r}: segment {segment.start}-{segment.end} "
+                        f"outside 0-{count - 1}"
+                    )
+        if self.measures[0].tempo is None:
+            raise ValueError("the first measure needs a tempo: later measures inherit it")
         ids = [t.id for t in self.tracks]
         if len(set(ids)) != len(ids):
             raise ValueError("duplicate track ids")
@@ -238,6 +243,27 @@ class Piece(BaseModel):
                     f"{sorted(ids)}, has {sorted(measure.voices)}"
                 )
         return self
+
+    @property
+    def playback_order(self) -> PlaybackOrder:
+        """The performed order of measures: every section played in turn, contiguous bars merged."""
+        return PlaybackOrder.from_measure_sequence(
+            [m for section in self.sections for m in section.measure_sequence()]
+        )
+
+    def measure_bpms(self) -> list[float]:
+        """The tempo of every measure in quarter-note BPM.
+
+        A tempo mark applies to its own measure and to the measures after it in *notated* order,
+        until the next mark. So a measure keeps its own tempo wherever the performance jumps to it.
+        """
+        bpms: list[float] = []
+        current = 0.0  # replaced at measure 0, which validation guarantees has a tempo
+        for measure in self.measures:
+            if measure.tempo is not None:
+                current = measure.tempo
+            bpms.append(current)
+        return bpms
 
     def track(self, track_id: str) -> Track:
         """Look up a track by id; KeyError listing the known ids if there is none."""
@@ -271,4 +297,26 @@ class Piece(BaseModel):
     @classmethod
     def load(cls, path: Path) -> Self:
         """Read and validate a piece from a JSON file written by ``save``."""
-        return cls.model_validate_json(path.read_text())
+        text = path.read_text()
+        data = json.loads(text)
+        version = data.get("schema_version") if isinstance(data, dict) else None
+        if version == 2:
+            data = cls._upgrade_v2(data)
+            version = data["schema_version"]
+        if version != SCHEMA_VERSION:
+            raise ValueError(
+                f"{path}: piece has schema version {version}, this version reads "
+                f"{SCHEMA_VERSION}; re-import the score"
+            )
+        return cls.model_validate(data)
+
+    @staticmethod
+    def _upgrade_v2(data: dict[str, Any]) -> dict[str, Any]:
+        """Schema 2 stored a resolved ``bpm`` on every measure; 3 stores ``tempo`` only on changes."""
+        previous: float | None = None
+        for measure in data["measures"]:
+            bpm = measure.pop("bpm")
+            measure["tempo"] = bpm if bpm != previous else None
+            previous = bpm
+        data["schema_version"] = SCHEMA_VERSION
+        return data

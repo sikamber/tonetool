@@ -14,7 +14,7 @@ from pathlib import Path
 
 from lxml import etree
 
-from .models import PlaybackOrder, Provenance, Section
+from .models import PlaybackOrder, Section
 
 _JUMP_TEXT = re.compile(
     r"\b(d\.?\s?[cs]\.?|da\s+capo|dal\s+segno|fine|to\s+coda|al\s+coda|coda)\b", re.I
@@ -133,30 +133,46 @@ class SuggestedStructure:
     # -- sections -----------------------------------------------------------------------------
 
     def suggest_sections(self) -> list[Section]:
-        """Boundaries at the first measure, rehearsal marks, and forward repeats."""
-        starts: dict[int, str | None] = {0: None}
-        for m in self.measure_mark_collections:
-            if m.rehearsal:
-                starts[m.index] = m.rehearsal
-            elif m.forward_repeat and m.index not in starts:
-                starts[m.index] = None
-        ordered = sorted(starts)
+        """Cut the performed sequence into sections: runs of notated ranges, in playback order.
+
+        A section starts at the first measure, at every rehearsal mark and forward repeat, and
+        wherever the music jumps back (a repeat or D.S.), so each pass through a repeated passage
+        becomes its own section. A pass that skips forward (past a first ending, or to a coda)
+        stays one section made of several ranges. The playback order is these sections in order.
+        """
+        marks = self.measure_mark_collections
+        sequence = self._performed_sequence()
+        passes: list[list[int]] = []
+        for position, index in enumerate(sequence):
+            jumped_back = position > 0 and index <= sequence[position - 1]
+            if (
+                position == 0
+                or jumped_back
+                or marks[index].rehearsal
+                or marks[index].forward_repeat
+            ):
+                passes.append([])
+            passes[-1].append(index)
+
         sections: list[Section] = []
-        for position, start in enumerate(ordered):
-            end = (
-                (ordered[position + 1] - 1)
-                if position + 1 < len(ordered)
-                else len(self.measure_mark_collections) - 1
-            )
-            name = starts[start] or f"Section {position + 1}"
+        times_used: dict[str, int] = {}  # so a repeated pass reads "A", then "A (2)"
+        for number, measure_indices in enumerate(passes, start=1):
+            name = marks[measure_indices[0]].rehearsal or f"Section {number}"
+            times_used[name] = times_used.get(name, 0) + 1
+            if times_used[name] > 1:
+                name = f"{name} ({times_used[name]})"
             sections.append(
-                Section(id=f"s{position + 1}", name=name, start=start, end=end)
+                Section(
+                    id=f"s{number}",
+                    name=name,
+                    segments=PlaybackOrder.from_measure_sequence(measure_indices).segments,
+                )
             )
         return sections
 
     # -- playback order -----------------------------------------------------------------------
 
-    def suggest_order(self) -> PlaybackOrder:
+    def _performed_sequence(self) -> list[int]:
         """Simulate repeats, voltas, and encoded jumps to get the performed measure sequence.
 
         Conventions (standard, but they are conventions):
@@ -233,7 +249,7 @@ class SuggestedStructure:
             )
 
         self._warn_about_unencoded_jumps()
-        return PlaybackOrder.from_measure_sequence(sequence, Provenance.AUTO)
+        return sequence
 
     def _last_ending_per_measure(self) -> dict[int, int]:
         """For each measure in a volta run, the highest ending number in that contiguous run."""

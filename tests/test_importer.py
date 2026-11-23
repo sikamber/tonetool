@@ -17,7 +17,7 @@ def test_tracks_and_voice_kinds(import_score):
 
 def test_measures_tempo_and_meter(import_score):
     piece = import_score(sb.simple_score(), bpm=90, time=(3, 4))
-    assert piece.measures[0].bpm == 90
+    assert piece.measures[0].tempo == 90
     assert (piece.measures[0].beats_per_bar, piece.measures[0].beat_unit) == (3, 4)
 
 
@@ -105,7 +105,7 @@ def test_missing_tempo_warns(import_score, tmp_path):
 
     piece = ScoreImporter(path).run()
     assert any("no tempo" in w for w in piece.warnings)
-    assert piece.measures[0].bpm == 100
+    assert piece.measures[0].tempo == 100
 
 
 def test_json_roundtrip(import_score, tmp_path):
@@ -230,3 +230,106 @@ def test_piece_rejects_a_measure_with_an_unknown_or_missing_track(import_score):
     del missing["measures"][1]["voices"]["T1"]
     with pytest.raises(ValueError, match="one VoiceMeasure per track"):
         Piece.model_validate(missing)
+
+
+def test_non_musicxml_extension_gets_a_clear_error_not_a_music21_crash(tmp_path):
+    import pytest
+
+    from tonetool.importer import ScoreImporter
+
+    zipped = tmp_path / "score.zip"
+    zipped.write_bytes(b"PK\x03\x04")  # music21 would route .zip to its MuseData parser
+    with pytest.raises(ValueError, match=r"expected a MusicXML file .*got '\.zip'.*extract"):
+        ScoreImporter(zipped).run()
+    bare = tmp_path / "score"
+    bare.write_bytes(b"")
+    with pytest.raises(ValueError, match="no extension"):
+        ScoreImporter(bare).run()
+
+
+def test_a_directory_or_missing_path_gets_a_clear_error(tmp_path):
+    import pytest
+
+    from tonetool.importer import ScoreImporter
+
+    with pytest.raises(ValueError, match="is a directory, not a file"):
+        ScoreImporter(tmp_path).run()
+    with pytest.raises(FileNotFoundError, match="no such file"):
+        ScoreImporter(tmp_path / "missing.musicxml").run()
+
+
+def test_cli_reports_file_problems_without_a_traceback(tmp_path, capsys):
+    import pytest
+
+    from tonetool.cli import main
+
+    for command in (["import", str(tmp_path)], ["show", str(tmp_path)]):
+        with pytest.raises(SystemExit) as exit_info:
+            main(command)
+        assert exit_info.value.code == 1
+    assert "error:" in capsys.readouterr().err
+
+
+def test_a_tempo_mark_sits_on_its_measure_and_later_measures_inherit_it(import_score):
+    parts, bars = sb.simple_score()
+    bars[2].tempo = 90
+    piece = import_score((parts, bars), bpm=120)
+    assert [m.tempo for m in piece.measures] == [120, None, 90, None]
+    assert piece.measure_bpms() == [120, 120, 90, 90]
+
+
+def test_a_first_tempo_that_comes_late_warns_and_defaults_the_start(import_score):
+    import re
+
+    from tonetool.importer import ScoreImporter
+
+    parts, bars = sb.simple_score()
+    bars[2].tempo = 90
+    text = sb.build_musicxml(parts, bars)
+    text = re.sub(r"<direction placement.*?</direction>", "", text, count=1)  # drop the bar-1 mark
+    import tempfile
+    from pathlib import Path
+
+    path = Path(tempfile.mkdtemp()) / "late.musicxml"
+    path.write_text(text)
+    piece = ScoreImporter(path).run()
+    assert piece.measure_bpms() == [100, 100, 90, 90]
+    assert any("no tempo marking at the start" in w for w in piece.warnings)
+
+
+def test_the_first_measure_must_carry_a_tempo(import_score):
+    import pytest
+
+    from tonetool.models import Piece
+
+    data = import_score(sb.simple_score()).model_dump()
+    data["measures"][0]["tempo"] = None
+    with pytest.raises(ValueError, match="first measure needs a tempo"):
+        Piece.model_validate(data)
+
+
+def test_editing_only_the_first_measures_tempo_changes_the_whole_piece(import_score):
+    from tonetool.models import Piece
+
+    data = import_score(sb.simple_score(), bpm=120).model_dump()
+    data["measures"][0]["tempo"] = 80
+    assert Piece.model_validate(data).measure_bpms() == [80, 80, 80, 80]
+
+
+def test_schema_2_files_are_upgraded_on_load(import_score, tmp_path):
+    import json
+
+    from tonetool.models import Piece
+
+    parts, bars = sb.simple_score()
+    bars[2].tempo = 90
+    data = import_score((parts, bars), bpm=120).model_dump()
+    data["schema_version"] = 2
+    for measure, bpm in zip(data["measures"], [120, 120, 90, 90]):  # schema 2: a bpm on every bar
+        del measure["tempo"]
+        measure["bpm"] = bpm
+    path = tmp_path / "v2.piece.json"
+    path.write_text(json.dumps(data))
+    piece = Piece.load(path)
+    assert [m.tempo for m in piece.measures] == [120, None, 90, None]
+    assert piece.measure_bpms() == [120, 120, 90, 90]

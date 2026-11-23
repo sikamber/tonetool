@@ -31,6 +31,7 @@ class Bar:
     words: str | None = None
     number: str | None = None  # printed number override
     implicit: bool = False
+    tempo: int | None = None  # a metronome mark on this bar (the first bar uses build_musicxml's bpm)
 
 
 def _pitch_xml(token: str) -> str:
@@ -76,9 +77,11 @@ def _measure_xml(bar: Bar, number: str, part_name: str, first: bool, bpm: int, t
             f"<time><beats>{time[0]}</beats><beat-type>{time[1]}</beat-type></time>"
             f"<clef><sign>G</sign><line>2</line></clef></attributes>"
         )
+    tempo = bar.tempo or (bpm if first else None)
+    if tempo:
         out.append(
             f'<direction placement="above"><direction-type><metronome><beat-unit>quarter</beat-unit>'
-            f"<per-minute>{bpm}</per-minute></metronome></direction-type><sound tempo=\"{bpm}\"/></direction>"
+            f"<per-minute>{tempo}</per-minute></metronome></direction-type><sound tempo=\"{tempo}\"/></direction>"
         )
     if bar.rehearsal:
         out.append(

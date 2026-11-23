@@ -83,10 +83,11 @@ class TimelineBuilder:
         spans: list[MeasureSpan] = []
         notes: list[ScheduledNote] = []
         held: dict[tuple[str, int], ScheduledNote] = {}  # (track, pitch) -> latest note of that pitch
+        bpms = self.piece.measure_bpms()
         clock = 0.0
         for position, index in enumerate(sequence):
             measure = self.piece.measures[index]
-            seconds_per_quarter = 60.0 / (measure.bpm * self.tempo_scale)
+            seconds_per_quarter = 60.0 / (bpms[index] * self.tempo_scale)
             length_sec = measure.length * seconds_per_quarter
             spans.append(
                 MeasureSpan(

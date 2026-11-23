@@ -31,7 +31,7 @@ class MixSettings(BaseModel):
     tempo_scale: float = Field(default=1.0, gt=0.0)
     # keys: track id ("T1"), track label (case-insensitive), or voice kind ("S", "A", "T", "B")
     tracks: dict[str, TrackMix] = Field(default_factory=dict)
-    section: str | None = None  # render only this section (notated order, ignoring repeats)
+    section: str | None = None  # render only this section, as performed (its own voltas etc.)
     loops: int = Field(default=1, ge=1)  # how many times to repeat the section
     count_in_beats: int = Field(default=0, ge=0)
     metronome: bool = False
@@ -116,7 +116,7 @@ class Renderer:
         if self.settings.section is None:
             return builder.build()
         section = self.piece.section(self.settings.section)
-        return builder.build(list(section.measures()) * self.settings.loops)
+        return builder.build(section.measure_sequence() * self.settings.loops)
 
     def render(self) -> np.ndarray:
         """Stereo float32 array of shape (samples, 2)."""

@@ -61,7 +61,7 @@ def test_unknown_track_is_an_error(import_score):
 
 
 def test_section_loops_and_count_in_extend_duration(import_score):
-    piece = import_score(sb.endings_score(), bpm=120)  # section A = 4 bars = 8 s
+    piece = import_score(sb.endings_score(), bpm=120)  # section s1 = bars 1-3 = 6 s
     base = Renderer(piece, MixSettings(section="s1")).timeline().duration
     looped = Renderer(piece, MixSettings(section="s1", loops=3)).timeline().duration
     assert looped == pytest.approx(3 * base)
@@ -112,3 +112,11 @@ def test_note_entering_mid_hold_has_no_attack_ramp():
     window = slice(0, int(0.005 * 44100))  # first 5 ms: the struck note is still ramping up
     assert np.abs(entering[window]).max() > 3 * np.abs(struck[window]).max()
     assert entering[0] == pytest.approx(0.0)  # still faded in a few ms: no click
+
+
+def test_a_section_renders_as_performed_including_its_own_ending(import_score):
+    piece = import_score(sb.endings_score(), bpm=120)  # whole-note bars = 2 s
+    # s2 is the second pass: bars 1-2, then the 2nd ending (bar 4), skipping the 1st ending (bar 3)
+    timeline = Renderer(piece, MixSettings(section="s2")).timeline()
+    assert [span.source_measure for span in timeline.spans] == [0, 1, 3]
+    assert timeline.duration == pytest.approx(6.0)

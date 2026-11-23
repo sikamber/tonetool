@@ -16,6 +16,9 @@ from .models import Measure, Note, Piece, Track, VoiceKind, VoiceMeasure
 from .structure import SuggestedStructure, read_musicxml_root
 
 DEFAULT_BPM = 100.0
+# music21 picks its parser from the extension (e.g. ".zip" is treated as MuseData and crashes on
+# MusicXML), and the structure reader only knows these, so anything else is refused up front.
+MUSICXML_SUFFIXES = (".musicxml", ".xml", ".mxl")
 
 
 class ScoreImporter:
@@ -28,6 +31,18 @@ class ScoreImporter:
 
     def run(self) -> Piece:
         """Parse the score and return a ``Piece`` with suggested sections and playback order."""
+        if self.path.is_dir():
+            raise ValueError(
+                f"{self.path} is a directory, not a file; point at the MusicXML file inside it"
+            )
+        if not self.path.exists():
+            raise FileNotFoundError(f"{self.path}: no such file")
+        if self.path.suffix.lower() not in MUSICXML_SUFFIXES:
+            raise ValueError(
+                f"{self.path}: expected a MusicXML file ({', '.join(MUSICXML_SUFFIXES)}), "
+                f"got {self.path.suffix or 'no extension'!r}; if it is an archive, extract the "
+                "MusicXML file from it first"
+            )
         score = m21.converter.parse(str(self.path))
         if not isinstance(score, m21.stream.Score):
             raise TypeError(
@@ -48,7 +63,6 @@ class ScoreImporter:
         for measure, collection in zip(measures, structure.measure_mark_collections):
             measure.number = collection.number
         sections = structure.suggest_sections()
-        order = structure.suggest_order()
 
         title = (
             score.metadata.title
@@ -62,7 +76,6 @@ class ScoreImporter:
             measures=measures,
             tracks=tracks,
             sections=sections,
-            playback_order=order,
             warnings=[*self.warnings, *structure.warnings],
         )
 
@@ -83,10 +96,6 @@ class ScoreImporter:
             for m in part.recurse().getElementsByClass(m21.tempo.MetronomeMark)
             if m.getQuarterBPM()
         )
-        if not tempo_marks:
-            self.warnings.append(
-                f"no tempo marking found; assuming {DEFAULT_BPM:g} BPM"
-            )
 
         beats, unit = 4, 4
         measures: list[Measure] = []
@@ -100,20 +109,26 @@ class ScoreImporter:
             signature = m.timeSignature or m.getContextByClass(m21.meter.TimeSignature)
             if signature is not None:
                 beats, unit = signature.numerator, signature.denominator
-            bpm = DEFAULT_BPM
-            for offset, value in tempo_marks:
-                if offset <= start + 1e-9:
-                    bpm = value
             measures.append(
                 Measure(
                     index=index,
                     number=str(m.number),
                     start=start,
                     length=end - start,
-                    bpm=bpm,
                     beats_per_bar=beats,
                     beat_unit=unit,
                 )
+            )
+
+        # a mark sits on the measure that contains it (one mid-measure counts from that bar's
+        # start); later measures inherit it, see Piece.measure_bpms
+        for offset, bpm in tempo_marks:
+            containing = max(i for i, m in enumerate(measures) if m.start <= offset + 1e-9)
+            measures[containing].tempo = bpm
+        if measures[0].tempo is None:
+            measures[0].tempo = DEFAULT_BPM
+            self.warnings.append(
+                f"no tempo marking at the start; assuming {DEFAULT_BPM:g} BPM"
             )
         return measures
 

@@ -138,3 +138,12 @@ def test_continuation_right_after_same_pitch_is_merged_not_restruck(import_score
     piece = import_score((["Soprano"], bars), bpm=120)
     notes = TimelineBuilder(piece).build([0, 2]).notes_for("T0")
     assert span(notes, 76) == [(1.0, 4.0)]
+
+
+def test_each_measure_keeps_its_own_notated_tempo_wherever_it_is_played(import_score):
+    parts, bars = sb.simple_score()
+    bars[2].tempo = 60  # bar 3 at 60 bpm: a 4-beat bar takes 4 s; the others take 2 s at 120
+    piece = import_score((parts, bars), bpm=120)
+    timeline = TimelineBuilder(piece).build([2, 0, 3])
+    assert [round(span.end_sec - span.start_sec, 3) for span in timeline.spans] == [4.0, 2.0, 4.0]
+    # bar 4 follows bar 3's mark in notated order, so it is slow even though it is played last
