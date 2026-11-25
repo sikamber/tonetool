@@ -22,9 +22,9 @@ interface Step {
   alteration: Alteration;
 }
 
-// Seven hues from red (do) to purple (ti). A lowered step shares the hue of the step it lowers, but
+// Seven hues from red (do) to pink (ti), with la purple. A lowered step shares the hue of the step it lowers, but
 // darker (mi and me are one colour, mi the brighter); a raised step is brighter.
-const HUES = { do: 0, re: 30, mi: 55, fa: 130, sol: 190, la: 235, ti: 280 } as const;
+const HUES = { do: 0, re: 30, mi: 55, fa: 130, sol: 190, la: 280, ti: 330 } as const;
 
 /** The twelve semitone offsets from the tonic. */
 const STEPS: readonly Step[] = [
@@ -58,7 +58,7 @@ const make = (step: Step, inKey: boolean): NoteColor => {
 };
 
 /**
- * Colours notes by their place in a key: red for do (the tonic) through to purple for ti.
+ * Colours notes by their place in a key: red for do (the tonic) through to pink for ti (la is purple).
  *
  * The colour depends only on the interval from the tonic, so major and minor keys share it
  * ("do-based" minor): the minor third is a darker *mi*, i.e. *me*. The mode only decides which notes
@@ -90,8 +90,9 @@ export class KeyColors {
     return make(STEPS[offset]!, this.scale.has(offset));
   }
 
-  /** One colour per semitone step, do first: for a legend. */
-  static legend(): NoteColor[] {
-    return STEPS.map((step) => make(step, true));
+  /** The colours of the notes in the key's scale, from the tonic up: for a legend. None without a key. */
+  legend(): NoteColor[] {
+    if (this.tonic === null) return [];
+    return [...this.scale].sort((a, b) => a - b).map((offset) => make(STEPS[offset]!, true));
   }
 }

@@ -13,7 +13,7 @@ const FOLLOW_EDGE = 0.85;
 
 /**
  * A piano roll of the piece in performed order: time to the right, pitch up, each note coloured by
- * its place in the key (red do ... purple ti). Click to jump there.
+ * its place in the key (red do ... pink ti). Click to jump there.
  *
  * Only the visible window is painted on a canvas of the size of the view, so a long piece never
  * needs a huge canvas. While playing, the canvas is repainted every frame for a smooth playhead.
@@ -111,7 +111,7 @@ export function PianoRoll({ piece, player }: { piece: Piece; player: Player }) {
       return next;
     });
 
-  const legend = useMemo(() => KeyColors.legend(), []);
+  const legend = useMemo(() => colors.legend(), [colors]);
 
   return (
     <section>
@@ -178,7 +178,7 @@ export function PianoRoll({ piece, player }: { piece: Piece; player: Player }) {
                 {color.syllable}
               </span>
             ))}
-            <span className="ml-2 text-zinc-500">Outlined notes are outside the key. Darker = lowered step.</span>
+            <span className="ml-2 text-zinc-500">Notes outside the key are outlined. Darker = lowered step.</span>
           </>
         ) : (
           <span className="text-zinc-500">No key is set. Set one in Edit to colour the notes by scale degree.</span>

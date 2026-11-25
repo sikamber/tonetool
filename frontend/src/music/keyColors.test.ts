@@ -1,15 +1,17 @@
 import { describe, expect, it } from "vitest";
+import type { Key } from "../api/types";
 import { KeyColors } from "./keyColors";
 
 const C_MAJOR = new KeyColors({ tonic: "C", mode: "major" });
 const hueOf = (colors: KeyColors, pitch: number) => colors.colorOf(pitch).hue;
 
 describe("KeyColors", () => {
-  it("runs from red do to purple ti through the major scale", () => {
+  it("runs from red do to pink ti through the major scale, la purple", () => {
     const scale = [60, 62, 64, 65, 67, 69, 71].map((p) => C_MAJOR.colorOf(p));
     expect(scale.map((c) => c.syllable)).toEqual(["do", "re", "mi", "fa", "sol", "la", "ti"]);
     expect(scale[0]!.hue).toBe(0); // red
-    expect(scale[6]!.hue).toBe(280); // purple
+    expect(scale[5]!.hue).toBe(280); // la: purple
+    expect(scale[6]!.hue).toBe(330); // ti: pink
     const hues = scale.map((c) => c.hue);
     expect(hues).toEqual([...hues].sort((a, b) => a - b)); // hues only go up the rainbow
     expect(new Set(hues).size).toBe(7);
@@ -78,10 +80,15 @@ describe("KeyColors", () => {
     expect(new KeyColors(undefined).hasKey).toBe(false);
   });
 
-  it("has a legend with a colour for each of the twelve steps", () => {
-    const legend = KeyColors.legend();
-    expect(legend.map((c) => c.syllable)).toEqual(["do", "ra", "re", "me", "mi", "fa", "fi", "sol", "le", "la", "te", "ti"]);
-    expect(legend.map((c) => c.css)).toEqual([60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71].map((p) => C_MAJOR.colorOf(p).css));
+  it("has a legend of only the notes in the scale, from the tonic up", () => {
+    const names = (key: Key | null) => new KeyColors(key).legend().map((c) => c.syllable);
+    expect(names({ tonic: "C", mode: "major" })).toEqual(["do", "re", "mi", "fa", "sol", "la", "ti"]);
+    expect(names({ tonic: "Eb", mode: "major" })).toEqual(["do", "re", "mi", "fa", "sol", "la", "ti"]); // same in every key
+    expect(names({ tonic: "A", mode: "minor" })).toEqual(["do", "re", "me", "fa", "sol", "le", "te", "ti"]); // natural minor + leading tone
+    expect(names(null)).toEqual([]);
+    const legend = C_MAJOR.legend();
+    expect(legend.map((c) => c.css)).toEqual([60, 62, 64, 65, 67, 69, 71].map((p) => C_MAJOR.colorOf(p).css));
     expect(legend[0]!.css).toMatch(/^hsl\(0 /); // red
+    expect(legend.every((c) => c.inKey)).toBe(true);
   });
 });

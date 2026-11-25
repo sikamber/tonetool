@@ -73,7 +73,7 @@ voice change instantly. Pick a piece, press play, or click a section to start fr
 the previous, the current (with the sung syllable highlighted) and the next line; click any syllable to jump to it.
 
 The **piano roll** shows the piece in performed order (time to the right, pitch up) with each note coloured
-by its place in the key, from red *do* (the tonic) to purple *ti*. Colours depend only on the interval
+by its place in the key, from red *do* (the tonic) to pink *ti* (*la* is purple). Colours depend only on the interval
 from the tonic, so major and minor keys share them: a lowered step is the same hue but darker (*mi* and
 *me* are one colour, *mi* the brighter) and notes outside the key's scale are outlined. Click to jump,
 hide voices with the chips, zoom, and let it follow the playhead. Without a key the notes are one colour;
