@@ -1,8 +1,10 @@
-"""Thin command-line wrapper: ``tonetool import|show|render|practice``. Logic lives in the package."""
+"""Thin command-line wrapper: ``tonetool import|show|render|practice|serve|openapi``. Logic lives in the package."""
 
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import sys
 from pathlib import Path
 
@@ -80,7 +82,7 @@ def cmd_render(args: argparse.Namespace) -> None:
     """Render a piece to audio; command-line flags override the --params file."""
     piece = Piece.load(args.piece)
     if args.params:
-        settings = MixSettings.model_validate_json(args.params.read_text())
+        settings = MixSettings.model_validate_json(args.params.read_text(encoding="utf-8"))
     else:
         settings = MixSettings()
     _apply_mix_options(settings, args)
@@ -104,6 +106,23 @@ def cmd_practice(args: argparse.Namespace) -> None:
         on_written=lambda path: print(f"wrote {path}"),
     )
     print(f"{len(paths)} files in {folder}")
+
+
+def cmd_serve(args: argparse.Namespace) -> None:
+    """Run the web API for the pieces linked in the config file."""
+    import uvicorn
+
+    from .api.app import create_app
+
+    uvicorn.run(create_app(args.config), host=args.host, port=args.port)
+
+
+def cmd_openapi(args: argparse.Namespace) -> None:
+    """Print the API's OpenAPI schema (the frontend generates its types from it)."""
+    from .api.app import create_app
+    from .api.config import ServerConfig
+
+    print(json.dumps(create_app(ServerConfig()).openapi(), indent=2))
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -146,6 +165,17 @@ def main(argv: list[str] | None = None) -> None:
     )
     _add_mix_options(p_practice)
     p_practice.set_defaults(func=cmd_practice)
+
+    p_serve = sub.add_parser("serve", help="run the web API for the pieces in a config file")
+    p_serve.add_argument(
+        "--config", type=Path, default=Path(os.environ.get("TONETOOL_CONFIG", "tonetool.toml"))
+    )
+    p_serve.add_argument("--host", default="127.0.0.1")
+    p_serve.add_argument("--port", type=int, default=8000)
+    p_serve.set_defaults(func=cmd_serve)
+
+    p_openapi = sub.add_parser("openapi", help="print the API's OpenAPI schema as JSON")
+    p_openapi.set_defaults(func=cmd_openapi)
 
     args = parser.parse_args(argv)
     try:

@@ -177,3 +177,10 @@ build/
 .vscode/
 .idea/
 .DS_Store
+
+# Local server config and frontend
+tonetool.toml
+frontend/node_modules/
+frontend/dist/
+frontend/openapi.json
+pieces/

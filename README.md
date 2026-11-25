@@ -75,6 +75,24 @@ Tempo is stored as `"tempo"` (quarter-note BPM) on the measure where a tempo mar
 the next mark. To change the tempo of the whole piece, edit `tempo` on the first measure only; to
 add a change, put a value on the measure where it starts. `--tempo` scales the result at render time.
 
+## Web player (draft)
+
+The backend only stores and serves pieces; the browser unrolls the sections (`frontend/src/music/timeline.ts`,
+a port of `timeline.py`) and synthesises the audio with Web Audio, so volume, pan and instrument per
+voice change instantly. Pick a piece, press play, or click a section to start from there.
+
+```bash
+cp tonetool.example.toml tonetool.toml   # [[pieces]] entries link ids to piece.json files
+uv run tonetool serve                    # API on :8000 (--config / TONETOOL_CONFIG to choose a file)
+cd frontend && npm install && npm run dev   # UI on :5173, proxies /api to :8000
+npm test                                 # timeline + cursor tests
+npm run gen:types                        # regenerate src/api/schema.d.ts after changing the pydantic models
+```
+
+Notes: browsers only start audio after a click; on iPhones the hardware silent switch also mutes
+Web Audio. Live playback has no peak normalisation (unlike the exported files); the mix is scaled by
+1/sqrt(voices) for headroom. The Python `render`/`practice` export remains for now and is a separate synth.
+
 ## Known limits
 
 - Audio is a plain additive-synth tone (no soundfont/FluidSynth yet). MP3 encoding is bundled (`lameenc`), so ffmpeg isn't needed.

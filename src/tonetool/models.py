@@ -292,12 +292,12 @@ class Piece(BaseModel):
 
     def save(self, path: Path) -> None:
         """Write the piece to ``path`` as indented JSON."""
-        path.write_text(self.model_dump_json(indent=2) + "\n")
+        path.write_text(self.model_dump_json(indent=2) + "\n", encoding="utf-8")
 
     @classmethod
     def load(cls, path: Path) -> Self:
         """Read and validate a piece from a JSON file written by ``save``."""
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         data = json.loads(text)
         version = data.get("schema_version") if isinstance(data, dict) else None
         if version == 2:

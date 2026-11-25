@@ -1,0 +1,15 @@
+# Copy to tonetool.toml and run: uv run tonetool serve
+# Relative paths resolve against this file. Generate the example pieces with:
+#   uv run python scripts/make_examples.py && uv run tonetool import examples/endings.musicxml
+
+[[pieces]]
+id = "simple"
+path = "examples/simple.piece.json"
+
+[[pieces]]
+id = "endings"
+path = "examples/endings.piece.json"
+
+[[pieces]]
+id = "dal_segno"
+path = "examples/dal_segno.piece.json"
