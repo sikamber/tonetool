@@ -5,14 +5,15 @@ import type { Player } from "../audio/player";
 import { LyricsView, type LyricLine, type LyricSyllable } from "../music/lyrics";
 
 export function LyricsPane({ piece, player }: { piece: Piece; player: Player }) {
-  const { status, tempoScale } = usePlayerState(player);
+  const { status } = usePlayerState(player);
   const { seconds } = usePlaybackPosition(player);
 
-  // The timeline is rebuilt when the tempo changes, so the views follow it.
+  // The player builds a new timeline when the tempo or the piece's sections change (and tells us by
+  // changing its state), so the views follow the timeline object itself.
+  const timeline = player.getTimeline();
   const views = useMemo(
-    () => piece.tracks.map((t) => new LyricsView(player.getTimeline(), t.id)).filter((v) => !v.isEmpty),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [piece, player, tempoScale],
+    () => piece.tracks.map((t) => new LyricsView(timeline, t.id)).filter((v) => !v.isEmpty),
+    [piece.tracks, timeline],
   );
   const [chosen, setChosen] = useState<string | null>(null);
   const view = views.find((v) => v.trackId === chosen) ?? views[0];

@@ -9,6 +9,7 @@ import { EditPanel } from "./EditPanel";
 import { ExportPanel } from "./ExportPanel";
 import { buttonClass, FilePicker } from "./FilePicker";
 import { LyricsPane } from "./LyricsPane";
+import { PianoRoll } from "./PianoRoll";
 import { SectionStrip } from "./SectionStrip";
 import { TransportBar } from "./TransportBar";
 import { VoiceMixer } from "./VoiceMixer";
@@ -54,6 +55,7 @@ function PieceView({ piece, summary, onDeleted }: Props & { piece: Piece }) {
       <TransportBar player={player} />
       <SectionStrip piece={shown} player={player} />
       <LyricsPane piece={shown} player={player} />
+      <PianoRoll piece={shown} player={player} />
       <VoiceMixer piece={shown} player={player} />
       <ExportPanel piece={shown} player={player} />
       {editing && <EditPanel pieceId={summary.id} draft={draft} onChange={setDraft} />}
