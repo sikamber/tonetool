@@ -110,6 +110,79 @@ describe("ties", () => {
   });
 });
 
+describe("ties across endings, chords and jumps", () => {
+  // quarter = 0.5 s at 120 bpm. Pitches: C5 72, E5 76, G5 79, A5 81.
+  const bar = (...notes: [number, number, number, boolean?][]): BarSpec => ({ notes: { T0: notes } });
+
+  it("holds a tie into both endings on the second pass, with no re-strike", () => {
+    const piece = makePiece({
+      bars: [
+        bar([72, 0, 2], [76, 2, 2, false]),
+        bar([76, 0, 2, true], [79, 2, 2]), // 1st ending
+        bar([76, 0, 2, true], [81, 2, 2]), // 2nd ending
+        bar([72, 0, 4]),
+      ],
+      sections: [[[0, 1]], [[0, 0], [2, 3]]], // order 0,1,0,2,3
+    });
+    const t = build(piece);
+    expect(t.spans.map((s) => s.sourceMeasure)).toEqual([0, 1, 0, 2, 3]);
+    const e5 = t.notes.filter((n) => n.pitch === 76);
+    expect(spanOf(t, 76)).toEqual([[1, 3], [5, 7]]);
+    expect(e5.every((n) => n.attack)).toBe(true);
+  });
+
+  it("stops a tie into the first ending only when the second pass takes the second ending", () => {
+    const piece = makePiece({
+      bars: [
+        bar([72, 0, 2], [76, 2, 2]),
+        bar([76, 0, 2, true], [79, 2, 2]),
+        bar([81, 0, 2], [81, 2, 2]),
+      ],
+      sections: [[[0, 1]], [[0, 0], [2, 2]]], // order 0,1,0,2
+    });
+    // first pass: bar 0's E5 is held into the first ending (1-3 s). Second pass: bar 2 has nothing
+    // to continue it, so it stops at the end of bar 0 (5-6 s).
+    expect(spanOf(build(piece), 76)).toEqual([[1, 3], [5, 6]]);
+  });
+
+  it("enters a tied continuation with nothing to continue, without attack", () => {
+    const piece = makePiece({
+      bars: [bar([72, 0, 2], [76, 2, 2, true]), bar([76, 0, 4, true]), bar([76, 0, 4, true])],
+      sections: [[[1, 1]]], // e.g. a looped section that begins mid-tie
+    });
+    const t = build(piece);
+    expect(spanOf(t, 76)).toEqual([[0, 2]]);
+    expect(t.notes.map((n) => n.attack)).toEqual([false]);
+  });
+
+  it("holds each pitch of a tied chord", () => {
+    const piece = makePiece({
+      bars: [bar([72, 0, 2], [76, 2, 2], [79, 2, 2]), bar([76, 0, 2, true], [79, 0, 2, true])],
+      sections: [[[0, 1]]],
+    });
+    const t = build(piece);
+    expect(spanOf(t, 76)).toEqual([[1, 3]]);
+    expect(spanOf(t, 79)).toEqual([[1, 3]]);
+    expect(t.notes.every((n) => n.attack)).toBe(true);
+  });
+
+  it("merges a continuation that lands right after the same pitch instead of re-striking", () => {
+    const piece = makePiece({
+      bars: [bar([72, 0, 2], [76, 2, 2]), bar(), bar([76, 0, 4, true])],
+      sections: [[[0, 0]], [[2, 2]]],
+    });
+    expect(spanOf(build(piece), 76)).toEqual([[1, 4]]);
+  });
+
+  it("plays an arbitrary order of measures, including a repeated one", () => {
+    const piece = makePiece({
+      bars: [whole(60), whole(62), whole(64), whole(65)],
+      sections: [[[3, 3], [3, 3], [0, 0]]],
+    });
+    expect(build(piece).spans.map((s) => s.sourceMeasure)).toEqual([3, 3, 0]);
+  });
+});
+
 describe("PlaybackCursor", () => {
   const piece = makePiece({
     bars: [{ notes: { T0: [[60, 0, 2], [62, 2, 2]] } }, { notes: { T0: [[64, 0, 4]] } }],

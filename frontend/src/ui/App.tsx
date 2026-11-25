@@ -1,16 +1,21 @@
 import { useState } from "react";
 import { usePieces } from "../api/hooks";
 import { PieceList } from "./PieceList";
+import { hashForPieceId, pieceIdFromHash } from "./pieceHash";
 import { PlayerPage } from "./PlayerPage";
 
 export function App() {
   const pieces = usePieces();
-  const [selectedId, setSelectedId] = useState<string | null>(() => location.hash.slice(1) || null);
+  const [selectedId, setSelectedId] = useState<string | null>(() => pieceIdFromHash(location.hash));
 
   const select = (id: string) => {
-    location.hash = id;
+    location.hash = hashForPieceId(id);
     setSelectedId(id);
   };
+
+  // A hash can name a piece that no longer exists (renamed in the config): ignore it, and don't
+  // start loading before the list is known.
+  const current = pieces.data?.find((p) => p.id === selectedId && p.error == null) ? selectedId : null;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -20,8 +25,8 @@ export function App() {
       </header>
       {pieces.isPending && <p className="text-zinc-400">Loading pieces…</p>}
       {pieces.isError && <p className="text-red-400">Could not load pieces: {pieces.error.message}</p>}
-      {pieces.data && <PieceList pieces={pieces.data} selectedId={selectedId} onSelect={select} />}
-      {selectedId && <PlayerPage key={selectedId} pieceId={selectedId} />}
+      {pieces.data && <PieceList pieces={pieces.data} selectedId={current} onSelect={select} />}
+      {current && <PlayerPage key={current} pieceId={current} />}
     </div>
   );
 }
