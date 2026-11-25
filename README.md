@@ -66,7 +66,7 @@ add a change, put a value on the measure where it starts. The player's tempo sli
 The backend only stores and serves pieces; the browser unrolls the sections (`frontend/src/music/timeline.ts`)
 and synthesises the audio with Web Audio, so volume, pan and instrument per
 voice change instantly. Pick a piece, press play, or click a section to start from there. The lyrics of the voice you follow show
-the current line (with the sung syllable highlighted) and the next one; click a syllable to jump to it.
+the previous, the current (with the sung syllable highlighted) and the next line; click any syllable to jump to it.
 
 ```bash
 cp tonetool.example.toml tonetool.toml   # [[pieces]] entries link ids to piece.json files
@@ -75,6 +75,23 @@ cd frontend && npm install && npm run dev   # UI on :5173, proxies /api to :8000
 npm test                                 # timeline + cursor tests
 npm run gen:types                        # regenerate src/api/schema.d.ts after changing the pydantic models
 ```
+
+**Importing and editing in the app.** Set `library = "library"` in `tonetool.toml` (see
+`tonetool.example.toml`) and use *Import score…* to upload a MusicXML file (`.musicxml`, `.xml`, `.mxl`).
+Each import is stored in `<library>/<id>/` with the original score and `piece.json`; the id is made
+from the title and numbered if taken. *Edit* opens a panel for the title, the voice labels and kinds
+(S/A/T/B), and the sections: name, bar ranges (typed as `1-12, 15`, counting from 1), lyric line,
+order, add and remove. Changes can be heard and seen at once; *Save* sends them to the server,
+which checks them with the same rules as `piece.json` and answers with what is wrong if they do not
+hold. Sections you change are marked `user`. *Replace score…* re-imports the piece from a new export
+but keeps its sections, title and voice labels, and needs the same number of bars and parts.
+*Delete* moves a library piece to `<library>/.trash`. Pieces linked with `[[pieces]]` can be edited
+(in place, the previous file is kept as `piece.json.bak`) but not deleted. Notes, lyrics text and
+tempo marks always come from the score and are not editable.
+
+The API behind it: `POST /api/pieces` (upload), `PUT /api/pieces/{id}` (edit), `POST
+/api/pieces/{id}/score` (replace score), `DELETE /api/pieces/{id}`. There is no login, so keep the
+server on localhost (its default) and do not expose it.
 
 Notes: browsers only start audio after a click; on iPhones the hardware silent switch also mutes
 Web Audio. Live playback is scaled by 1/sqrt(voices) for headroom; exports are not, and are only
@@ -99,6 +116,8 @@ single voice only gets the tutti file.
 - There is no count-in or metronome in the web player yet (the removed Python renderer had both).
 - A tempo mark counts from the start of the measure it sits in (mid-measure changes are
   approximated that way).
+- Editing in the app covers sections, title and voice labels; tempo marks and lyric text cannot be
+  edited, and saves are last-write-wins (no protection against two browser tabs editing at once).
 - Lyric line breaks are guessed (after . ! ? and where the voice rests for a beat), since MusicXML
   has none. Only one lyric line per section; elisions and extenders (melismas) are not shown.
 - Text-only jumps ("D.S. al Coda" without `<sound>` attributes) are warned about, not followed.

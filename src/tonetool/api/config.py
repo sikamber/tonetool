@@ -18,11 +18,15 @@ class PieceEntry(BaseModel):
 class ServerConfig(BaseModel):
     """The contents of ``tonetool.toml``.
 
-    ``[[pieces]]`` entries link ids to piece files. Relative paths resolve against the directory
+    ``[[pieces]]`` entries link ids to piece files; ``library`` is a folder where pieces imported in
+    the app are stored (and which is scanned for them). Relative paths resolve against the directory
     of the config file, so a config and its pieces can be moved together.
     """
 
     pieces: list[PieceEntry] = Field(default_factory=list)
+    # Folder for pieces imported in the app, one subfolder per piece. None: imports are disabled.
+    library: Path | None = None
+    max_upload_mb: int = Field(default=25, gt=0)
 
     @model_validator(mode="after")
     def _unique_ids(self) -> ServerConfig:
@@ -40,4 +44,6 @@ class ServerConfig(BaseModel):
         for entry in config.pieces:
             if not entry.path.is_absolute():
                 entry.path = base / entry.path
+        if config.library is not None and not config.library.is_absolute():
+            config.library = base / config.library
         return config

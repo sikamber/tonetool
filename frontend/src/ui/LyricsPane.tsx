@@ -21,6 +21,7 @@ export function LyricsPane({ piece, player }: { piece: Piece; player: Player }) 
   const labels = new Map(piece.tracks.map((t) => [t.id, t.label]));
   const index = view.lineIndexAt(seconds);
   const line = view.lines[index]!;
+  const previous = view.lines[index - 1];
   const next = view.lines[index + 1];
   const sung = status === "stopped" ? null : view.syllableAt(seconds);
 
@@ -46,6 +47,16 @@ export function LyricsPane({ piece, player }: { piece: Piece; player: Player }) 
         )}
       </div>
       <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+        {previous && (
+          <Line
+            line={previous}
+            current={null}
+            onSeek={(s) => player.seek(s)}
+            size="small"
+            tone="past"
+            showSection={previous.section.id !== line.section.id}
+          />
+        )}
         <Line line={line} current={sung} onSeek={(s) => player.seek(s)} size="large" showSection />
         {next && (
           <Line
@@ -53,6 +64,7 @@ export function LyricsPane({ piece, player }: { piece: Piece; player: Player }) 
             current={null}
             onSeek={(s) => player.seek(s)}
             size="small"
+            tone="upcoming"
             showSection={next.section.id !== line.section.id}
           />
         )}
@@ -66,12 +78,15 @@ function Line({
   current,
   onSeek,
   size,
+  tone = "upcoming",
   showSection,
 }: {
   line: LyricLine;
   current: LyricSyllable | null;
   onSeek: (seconds: number) => void;
   size: "large" | "small";
+  /** For small lines: a line already sung is dimmer than one still to come. */
+  tone?: "past" | "upcoming";
   showSection: boolean;
 }) {
   const large = size === "large";
@@ -80,7 +95,13 @@ function Line({
       {showSection && (
         <div className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-500">{line.section.name}</div>
       )}
-      <p className={large ? "text-2xl leading-relaxed" : "text-base leading-relaxed text-zinc-500"}>
+      <p
+        className={
+          large
+            ? "text-2xl leading-relaxed"
+            : `text-base leading-relaxed ${tone === "past" ? "text-zinc-600" : "text-zinc-500"}`
+        }
+      >
         {line.words.map((word, w) => (
           <span key={w} className="mr-[0.4em] inline-block whitespace-nowrap">
             {word.syllables.map((syllable) => {

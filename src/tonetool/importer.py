@@ -70,6 +70,13 @@ class ScoreImporter:
         # printed numbers come from the XML (music21 renumbers some cases)
         for measure, collection in zip(measures, structure.measure_mark_collections):
             measure.number = collection.number
+        if keep_sections is not None:
+            too_far = [s.id for s in keep_sections if any(g.end >= len(measures) for g in s.segments)]
+            if too_far:
+                raise ValueError(
+                    f"the existing sections {too_far} reach past the end of this score "
+                    f"({len(measures)} bars)"
+                )
         sections = keep_sections if keep_sections is not None else structure.suggest_sections()
 
         title = (

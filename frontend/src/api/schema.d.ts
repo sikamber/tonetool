@@ -14,7 +14,8 @@ export interface paths {
         /** List Pieces */
         get: operations["list_pieces_api_pieces_get"];
         put?: never;
-        post?: never;
+        /** Import Piece */
+        post: operations["import_piece_api_pieces_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -30,8 +31,27 @@ export interface paths {
         };
         /** Get Piece */
         get: operations["get_piece_api_pieces__piece_id__get"];
-        put?: never;
+        /** Edit Piece */
+        put: operations["edit_piece_api_pieces__piece_id__put"];
         post?: never;
+        /** Delete Piece */
+        delete: operations["delete_piece_api_pieces__piece_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pieces/{piece_id}/score": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replace Score */
+        post: operations["replace_score_api_pieces__piece_id__score_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -42,6 +62,18 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Body_import_piece_api_pieces_post */
+        Body_import_piece_api_pieces_post: {
+            /** File */
+            file: string;
+            /** Id */
+            id?: string | null;
+        };
+        /** Body_replace_score_api_pieces__piece_id__score_post */
+        Body_replace_score_api_pieces__piece_id__score_post: {
+            /** File */
+            file: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -136,6 +168,19 @@ export interface components {
             warnings?: string[];
         };
         /**
+         * PieceEdits
+         * @description Everything about a piece that can be changed in the app. Notes, lyrics and tempo cannot:
+         *     they come from the MusicXML score.
+         */
+        PieceEdits: {
+            /** Title */
+            title: string;
+            /** Tracks */
+            tracks: components["schemas"]["TrackEdit"][];
+            /** Sections */
+            sections: components["schemas"]["Section"][];
+        };
+        /**
          * PieceSummary
          * @description What the piece picker needs, without the notes.
          */
@@ -150,6 +195,12 @@ export interface components {
             section_count: number;
             /** Measure Count */
             measure_count: number;
+            /**
+             * Origin
+             * @default linked
+             * @enum {string}
+             */
+            origin: "library" | "linked";
             /** Error */
             error?: string | null;
         };
@@ -209,6 +260,17 @@ export interface components {
             /** Label */
             label: string;
             /** @default other */
+            voice: components["schemas"]["VoiceKind"];
+        };
+        /**
+         * TrackEdit
+         * @description The editable part of a track: how it is called and what kind of voice it is.
+         */
+        TrackEdit: {
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
             voice: components["schemas"]["VoiceKind"];
         };
         /** TrackSummary */
@@ -276,6 +338,39 @@ export interface operations {
             };
         };
     };
+    import_piece_api_pieces_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_piece_api_pieces_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PieceSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_piece_api_pieces__piece_id__get: {
         parameters: {
             query?: never;
@@ -286,6 +381,105 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Piece"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_piece_api_pieces__piece_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                piece_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PieceEdits"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Piece"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_piece_api_pieces__piece_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                piece_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_score_api_pieces__piece_id__score_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                piece_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_replace_score_api_pieces__piece_id__score_post"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

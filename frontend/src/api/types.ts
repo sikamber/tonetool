@@ -8,3 +8,6 @@ export type Note = Schemas["Note"];
 export type Section = Schemas["Section"];
 export type Track = Schemas["Track"];
 export type PieceSummary = Schemas["PieceSummary"];
+export type PieceEdits = Schemas["PieceEdits"];
+export type TrackEdit = Schemas["TrackEdit"];
+export type VoiceKind = Track["voice"];

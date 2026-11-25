@@ -1,15 +1,23 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Piece } from "../api/types";
 import { Player, type PlayerState } from "./player";
 
-/** Creates a Player for the piece (after mount, so React StrictMode's double mount is safe). */
+/**
+ * One Player for the component's lifetime (created after mount, so React StrictMode's double mount
+ * is safe), kept in step with `piece` as it is edited: only a change to the sections or the notes
+ * rebuilds the timeline, so typing a title does not stop the music.
+ */
 export function usePlayer(piece: Piece): Player | null {
   const [player, setPlayer] = useState<Player | null>(null);
+  const first = useRef(piece);
   useEffect(() => {
-    const created = new Player(piece);
+    const created = new Player(first.current);
     setPlayer(created);
     return () => created.dispose();
-  }, [piece]);
+  }, []);
+  useEffect(() => {
+    player?.updatePiece(piece);
+  }, [player, piece]);
   return player;
 }
 

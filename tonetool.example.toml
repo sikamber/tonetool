@@ -2,6 +2,12 @@
 # Relative paths resolve against this file. Generate the example pieces with:
 #   uv run python scripts/make_examples.py && uv run tonetool import examples/endings.musicxml
 
+# Pieces imported in the app are stored here, one folder per piece (score + piece.json).
+# Leave this out to turn importing off. Deleted pieces go to <library>/.trash.
+library = "library"
+# max_upload_mb = 25
+
+# Pieces you link yourself (these can be edited in the app but not deleted):
 [[pieces]]
 id = "simple"
 path = "examples/simple.piece.json"

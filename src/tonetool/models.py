@@ -322,9 +322,13 @@ class Piece(BaseModel):
             f"no section {section_id!r}; have {[s.id for s in self.sections]}"
         )
 
+    def to_json(self) -> str:
+        """The piece as indented JSON, the form ``save`` writes."""
+        return self.model_dump_json(indent=2) + "\n"
+
     def save(self, path: Path) -> None:
         """Write the piece to ``path`` as indented JSON."""
-        path.write_text(self.model_dump_json(indent=2) + "\n", encoding="utf-8")
+        path.write_text(self.to_json(), encoding="utf-8")
 
     @classmethod
     def load(cls, path: Path) -> Self:

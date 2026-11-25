@@ -40,7 +40,7 @@ export class Player {
   private startedAtPosition = 0; // timeline position at the moment of the last start
   private startedAtContext = 0; // AudioContext time of that moment
 
-  constructor(private readonly piece: Piece) {
+  constructor(private piece: Piece) {
     this.timeline = new TimelineBuilder(piece).build();
     // Headroom: voices add up, so scale the sum by 1/sqrt(n). No compressor: its behaviour
     // differs between browsers.
@@ -131,6 +131,20 @@ export class Player {
     this.state = { ...this.state, tempoScale: scale };
     if (wasPlaying) this.begin(this.resumeAt);
     this.emit({});
+  }
+
+  /**
+   * Follow a changed piece (the sections were edited, or a new score replaced the notes): rebuild
+   * the timeline and stop, since the old position no longer means anything. The mixer settings and
+   * the audio context are kept. The tracks must be the same ones, which the server guarantees.
+   * Changes to anything else (title, labels) need no rebuild and do not interrupt playback.
+   */
+  updatePiece(piece: Piece): void {
+    const sameMusic = piece.sections === this.piece.sections && piece.measures === this.piece.measures;
+    this.piece = piece;
+    if (sameMusic) return;
+    this.timeline = new TimelineBuilder(piece, this.state.tempoScale).build();
+    this.stop();
   }
 
   dispose(): void {
