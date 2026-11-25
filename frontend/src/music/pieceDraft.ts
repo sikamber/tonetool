@@ -1,4 +1,4 @@
-import type { Piece, PieceEdits, Section, VoiceKind } from "../api/types";
+import type { Key, Piece, PieceEdits, Section, VoiceKind } from "../api/types";
 
 export type Segment = Section["segments"][number];
 
@@ -39,7 +39,7 @@ export function sameSegments(a: readonly Segment[], b: readonly Segment[]): bool
 /**
  * A piece being edited: the saved piece plus the changes made so far. Immutable, so every operation
  * returns a new draft (which suits React state). Only what the server accepts as an edit can change:
- * title, track labels and voice kinds, and the sections. Notes, lyrics and tempo cannot.
+ * title, key, track labels and voice kinds, and the sections. Notes, lyrics and tempo cannot.
  *
  * The server validates the result when it is saved; the rules about sections (ranges, ids) are not
  * repeated here beyond what is needed to turn typed input into values.
@@ -76,6 +76,11 @@ export class PieceDraft {
 
   setTitle(title: string): PieceDraft {
     return this.with({ title });
+  }
+
+  /** Sets the tonal key; null for "not set". */
+  setKey(key: Key | null): PieceDraft {
+    return this.with({ key });
   }
 
   setTrack(trackId: string, change: { label?: string; voice?: VoiceKind }): PieceDraft {
@@ -141,6 +146,7 @@ export class PieceDraft {
   private static editsOf(piece: Piece): PieceEdits {
     return {
       title: piece.title,
+      key: piece.key ?? null,
       tracks: piece.tracks.map((t) => ({ id: t.id, label: t.label, voice: t.voice })),
       sections: piece.sections,
     };

@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from tonetool.lyrics import LyricVerses
-from tonetool.models import Piece, Provenance, Syllabic
+from tonetool.models import SCHEMA_VERSION, Piece, Provenance, Syllabic
 
 from . import scorebuilder as sb
 
@@ -95,7 +95,7 @@ def test_pieces_from_schema_3_still_load(import_score, tmp_path: Path):
     path = tmp_path / "old.piece.json"
     path.write_text(json.dumps(data), encoding="utf-8")
     loaded = Piece.load(path)
-    assert loaded.schema_version == 4
+    assert loaded.schema_version == SCHEMA_VERSION
     assert all(s.lyric_number is None for s in loaded.sections)
 
 

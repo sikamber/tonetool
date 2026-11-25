@@ -28,7 +28,8 @@ def cmd_import(args: argparse.Namespace) -> None:
 
 def _show(piece: Piece) -> None:
     """Print tracks, sections, playback order, and any warnings for a piece."""
-    print(f"{piece.title}: {len(piece.measures)} measures, {len(piece.tracks)} tracks")
+    key = f", key {piece.key.name}" if piece.key else ""
+    print(f"{piece.title}: {len(piece.measures)} measures, {len(piece.tracks)} tracks{key}")
     for track in piece.tracks:
         count = sum(len(v.notes) for v in piece.voice_measures(track.id))
         print(f"  track {track.id:8} {track.label} [{track.voice.value}] {count} notes")

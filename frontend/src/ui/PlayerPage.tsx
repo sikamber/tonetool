@@ -3,6 +3,7 @@ import { ApiError } from "../api/client";
 import { useDeletePiece, usePiece, useReplaceScore } from "../api/hooks";
 import type { Piece, PieceSummary } from "../api/types";
 import { usePlayer } from "../audio/hooks";
+import { keyLabel } from "../music/key";
 import { PieceDraft } from "../music/pieceDraft";
 import { EditPanel } from "./EditPanel";
 import { ExportPanel } from "./ExportPanel";
@@ -38,7 +39,10 @@ function PieceView({ piece, summary, onDeleted }: Props & { piece: Piece }) {
   return (
     <main className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-medium">{shown.title}</h2>
+        <h2 className="text-xl font-medium">
+          {shown.title}
+          {shown.key && <span className="ml-3 text-sm font-normal text-zinc-400">{keyLabel(shown.key)}</span>}
+        </h2>
         <PieceToolbar
           summary={summary}
           editing={editing}

@@ -91,12 +91,23 @@ def _voice_length(tokens: list[str]) -> int:
     )
 
 
-def _measure_xml(bar: Bar, number: str, part_name: str, first: bool, bpm: int, time: tuple[int, int]) -> str:
+def _key_xml(key: tuple[int, str | None] | None) -> str:
+    """``<key>`` for (fifths, mode); None writes no key signature at all."""
+    if key is None:
+        return ""
+    fifths, mode = key
+    return f"<key><fifths>{fifths}</fifths>{f'<mode>{mode}</mode>' if mode else ''}</key>"
+
+
+def _measure_xml(
+    bar: Bar, number: str, part_name: str, first: bool, bpm: int, time: tuple[int, int],
+    key: tuple[int, str | None] | None = (0, None),
+) -> str:
     """One ``<measure>`` of one part, including its structural markings."""
     out = [f'<measure number="{number}"{" implicit=\"yes\"" if bar.implicit else ""}>']
     if first:
         out.append(
-            f"<attributes><divisions>{DIVISIONS}</divisions><key><fifths>0</fifths></key>"
+            f"<attributes><divisions>{DIVISIONS}</divisions>{_key_xml(key)}"
             f"<time><beats>{time[0]}</beats><beat-type>{time[1]}</beat-type></time>"
             f"<clef><sign>G</sign><line>2</line></clef></attributes>"
         )
@@ -143,7 +154,8 @@ def _measure_xml(bar: Bar, number: str, part_name: str, first: bool, bpm: int, t
 
 
 def build_musicxml(
-    parts: list[str], bars: list[Bar], title: str = "Test", bpm: int = 120, time: tuple[int, int] = (4, 4)
+    parts: list[str], bars: list[Bar], title: str = "Test", bpm: int = 120, time: tuple[int, int] = (4, 4),
+    key: tuple[int, str | None] | None = (0, None),
 ) -> str:
     """A complete score-partwise document with one part per name and one measure per Bar."""
     list_xml = "".join(
@@ -152,7 +164,8 @@ def build_musicxml(
     body = []
     for i, name in enumerate(parts):
         measures = "".join(
-            _measure_xml(bar, bar.number or str(n + 1), name, n == 0, bpm, time) for n, bar in enumerate(bars)
+            _measure_xml(bar, bar.number or str(n + 1), name, n == 0, bpm, time, key)
+            for n, bar in enumerate(bars)
         )
         body.append(f'<part id="P{i + 1}">{measures}</part>')
     return (

@@ -34,6 +34,7 @@ def edits_of(piece: dict) -> dict:
     """The PUT body that changes nothing."""
     return {
         "title": piece["title"],
+        "key": piece["key"],
         "tracks": [{"id": t["id"], "label": t["label"], "voice": t["voice"]} for t in piece["tracks"]],
         "sections": piece["sections"],
     }
@@ -263,3 +264,45 @@ def test_replacing_with_a_broken_file_changes_nothing(client: TestClient, librar
     before = (library / "Song" / "piece.json").read_bytes()
     assert replace(client, b"<nope").status_code == 422
     assert (library / "Song" / "piece.json").read_bytes() == before
+
+
+# -- key ----------------------------------------------------------------------------------------
+
+
+def test_the_suggested_key_is_stored_and_can_be_changed_and_cleared(client: TestClient, imported: dict):
+    assert imported["key"] == {"tonic": "C", "mode": "major"}  # the endings score has no signature: fifths 0
+    edits = edits_of(imported)
+    edits["key"] = {"tonic": "Bb", "mode": "minor"}
+    saved = client.put("/api/pieces/Song", json=edits).json()
+    assert saved["key"] == {"tonic": "Bb", "mode": "minor"}
+    assert client.get("/api/pieces/Song").json()["key"] == {"tonic": "Bb", "mode": "minor"}
+    edits["key"] = None
+    assert client.put("/api/pieces/Song", json=edits).json()["key"] is None
+
+
+@pytest.mark.parametrize("key", [{"tonic": "H", "mode": "major"}, {"tonic": "C", "mode": "dorian"}, {"tonic": "C"}])
+def test_an_invalid_key_is_refused(client: TestClient, imported: dict, key):
+    edits = edits_of(imported)
+    edits["key"] = key
+    assert client.put("/api/pieces/Song", json=edits).status_code == 422
+
+
+def test_leaving_the_key_out_of_an_edit_is_an_error_not_a_clear(client: TestClient, imported: dict):
+    edits = edits_of(imported)
+    del edits["key"]
+    assert client.put("/api/pieces/Song", json=edits).status_code == 422
+    assert client.get("/api/pieces/Song").json()["key"] == imported["key"]
+
+
+def test_replacing_the_score_keeps_a_key_that_was_set(client: TestClient, imported: dict):
+    edits = edits_of(imported)
+    edits["key"] = {"tonic": "F", "mode": "minor"}
+    client.put("/api/pieces/Song", json=edits)
+    assert replace(client, score()).json()["key"] == {"tonic": "F", "mode": "minor"}
+
+
+def test_replacing_the_score_fills_in_a_missing_key(client: TestClient, imported: dict):
+    edits = edits_of(imported)
+    edits["key"] = None
+    client.put("/api/pieces/Song", json=edits)
+    assert replace(client, score()).json()["key"] == {"tonic": "C", "mode": "major"}

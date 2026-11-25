@@ -18,7 +18,37 @@ from typing import Any, Self
 
 from pydantic import BaseModel, Field, model_validator
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
+
+
+class Mode(StrEnum):
+    MAJOR = "major"
+    MINOR = "minor"
+
+
+_NATURAL_PITCH_CLASSES = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
+
+
+class Key(BaseModel):
+    """The tonal key of a piece: a tonic and a mode.
+
+    The tonic is spelled as a note name (``"Bb"``, ``"F#"``) because the spelling is what people
+    expect to read; the pitch class is what colours and analysis use.
+    """
+
+    tonic: str = Field(pattern=r"^[A-G][#b]?$")
+    mode: Mode
+
+    @property
+    def pitch_class(self) -> int:
+        """0-11, with C = 0."""
+        shift = {"#": 1, "b": -1}.get(self.tonic[1:], 0)
+        return (_NATURAL_PITCH_CLASSES[self.tonic[0]] + shift) % 12
+
+    @property
+    def name(self) -> str:
+        """For people: ``"Bb major"``."""
+        return f"{self.tonic} {self.mode.value}"
 
 
 class Provenance(StrEnum):
@@ -245,6 +275,7 @@ class Piece(BaseModel):
     measures: list[Measure]
     tracks: list[Track]
     sections: list[Section]  # in performance order; they define the playback order
+    key: Key | None = None  # suggested by the importer from the score; a person can set it
     warnings: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -339,9 +370,9 @@ class Piece(BaseModel):
         if version == 2:
             data = cls._upgrade_v2(data)
             version = data["schema_version"]
-        if version == 3:
-            data["schema_version"] = SCHEMA_VERSION  # v4 only adds optional lyric fields
-            version = SCHEMA_VERSION
+        while version in (3, 4):  # 4 added optional lyrics, 5 an optional key: nothing to convert
+            version += 1
+            data["schema_version"] = version
         if version != SCHEMA_VERSION:
             raise ValueError(
                 f"{path}: piece has schema version {version}, this version reads "

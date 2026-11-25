@@ -6,7 +6,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, StringConstraints, ValidationError
 
-from ..models import Piece, Provenance, Section, VoiceKind
+from ..models import Key, Piece, Provenance, Section, VoiceKind
 from .errors import ClientError
 
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -25,6 +25,9 @@ class PieceEdits(BaseModel):
     they come from the MusicXML score."""
 
     title: Text
+    # Required but nullable: ``null`` clears the key, and leaving the field out is an error, so a
+    # client that does not know about keys cannot remove one by accident.
+    key: Key | None
     tracks: list[TrackEdit]
     sections: list[Section]
 
@@ -49,6 +52,7 @@ class PieceEditor:
 
         data = self.piece.model_dump(mode="json")
         data["title"] = edits.title
+        data["key"] = edits.key.model_dump(mode="json") if edits.key else None
         by_id = {t.id: t for t in edits.tracks}
         for track in data["tracks"]:
             track["label"] = by_id[track["id"]].label

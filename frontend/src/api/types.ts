@@ -11,3 +11,5 @@ export type PieceSummary = Schemas["PieceSummary"];
 export type PieceEdits = Schemas["PieceEdits"];
 export type TrackEdit = Schemas["TrackEdit"];
 export type VoiceKind = Track["voice"];
+export type Key = Schemas["Key"];
+export type Mode = Schemas["Mode"];

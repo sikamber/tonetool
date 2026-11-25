@@ -61,6 +61,16 @@ describe("PieceDraft", () => {
     expect(edited.setTitle("Test").setTrack("T1", { label: "T1", voice: "other" }).dirty).toBe(false);
   });
 
+  it("sets and clears the key, and is clean again when it is changed back", () => {
+    const draft = PieceDraft.from(makePiece({ key: { tonic: "C", mode: "major" }, bars: [{ notes: {} }], sections: [[[0, 0]]] }));
+    const edited = draft.setKey({ tonic: "Bb", mode: "minor" });
+    expect(edited.dirty).toBe(true);
+    expect(edited.toEdits().key).toEqual({ tonic: "Bb", mode: "minor" });
+    expect(edited.setKey({ tonic: "C", mode: "major" }).dirty).toBe(false);
+    expect(draft.setKey(null).toEdits().key).toBeNull();
+    expect(PieceDraft.from(piece()).toEdits().key).toBeNull(); // no key: sent as an explicit null
+  });
+
   it("adds a section over the whole piece with a free id", () => {
     const added = PieceDraft.from(piece()).addSection();
     const section = added.piece.sections.at(-1)!;

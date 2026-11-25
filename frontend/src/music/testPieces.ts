@@ -1,4 +1,4 @@
-import type { Piece } from "../api/types";
+import type { Key, Piece } from "../api/types";
 
 /** A syllable on a lyric line: ["1", "Ju", "begin"]. */
 export type LyricSpec = [number: string, text: string, syllabic?: "single" | "begin" | "middle" | "end"];
@@ -19,6 +19,7 @@ export function makePiece(opts: {
   sections: [number, number][][];
   /** The lyric line each section sings, by section index (omitted or null: none). */
   lyricNumbers?: (string | null)[];
+  key?: Key | null;
   tempo?: number;
 }): Piece {
   const tracks = opts.tracks ?? ["T0"];
@@ -28,6 +29,7 @@ export function makePiece(opts: {
     title: "Test",
     source_file: "test.musicxml",
     xml_sha256: "",
+    key: opts.key ?? null,
     tracks: tracks.map((id) => ({ id, label: id, voice: "other" })),
     sections: opts.sections.map((segments, i) => ({
       id: `s${i + 1}`,

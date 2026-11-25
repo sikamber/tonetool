@@ -129,7 +129,7 @@ class PieceLibrary:
                 raise
 
     def replace_score(self, piece_id: str, filename: str, data: bytes) -> Piece:
-        """Re-import a piece from a new score, keeping its sections, title and voice labels/kinds.
+        """Re-import a piece from a new score, keeping its sections, title, key and voice labels/kinds.
 
         The new score must have the same number of bars and parts, since the sections refer to bars.
         """
@@ -147,6 +147,7 @@ class PieceLibrary:
                     f"this piece has {len(old.measures)} and {len(old.tracks)}; import it as a new piece instead"
                 )
             new.title = old.title
+            new.key = old.key or new.key
             for before, after in zip(old.tracks, new.tracks):
                 after.label, after.voice = before.label, before.voice
             if stored.origin == "library":

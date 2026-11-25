@@ -80,6 +80,18 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * Key
+         * @description The tonal key of a piece: a tonic and a mode.
+         *
+         *     The tonic is spelled as a note name (``"Bb"``, ``"F#"``) because the spelling is what people
+         *     expect to read; the pitch class is what colours and analysis use.
+         */
+        Key: {
+            /** Tonic */
+            tonic: string;
+            mode: components["schemas"]["Mode"];
+        };
+        /**
          * Lyric
          * @description One syllable sung on a note, for one lyric line of the score.
          *
@@ -127,6 +139,11 @@ export interface components {
             };
         };
         /**
+         * Mode
+         * @enum {string}
+         */
+        Mode: "major" | "minor";
+        /**
          * Note
          * @description One sounding pitch inside a measure.
          */
@@ -149,7 +166,7 @@ export interface components {
         Piece: {
             /**
              * Schema Version
-             * @default 4
+             * @default 5
              */
             schema_version: number;
             /** Title */
@@ -164,6 +181,7 @@ export interface components {
             tracks: components["schemas"]["Track"][];
             /** Sections */
             sections: components["schemas"]["Section"][];
+            key?: components["schemas"]["Key"] | null;
             /** Warnings */
             warnings?: string[];
         };
@@ -175,6 +193,7 @@ export interface components {
         PieceEdits: {
             /** Title */
             title: string;
+            key: components["schemas"]["Key"] | null;
             /** Tracks */
             tracks: components["schemas"]["TrackEdit"][];
             /** Sections */

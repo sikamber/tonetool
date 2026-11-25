@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { ApiError } from "../api/client";
 import { useSavePiece } from "../api/hooks";
 import { formatRanges, parseRanges, PieceDraft, sameSegments, VOICE_KINDS } from "../music/pieceDraft";
+import { TONICS } from "../music/key";
 import { describeSection } from "../music/sections";
-import type { Section, VoiceKind } from "../api/types";
+import type { Mode, Section, VoiceKind } from "../api/types";
 import { buttonClass } from "./FilePicker";
 
 const input = "rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1 text-sm";
@@ -56,6 +57,11 @@ export function EditPanel({ pieceId, draft, onChange }: Props) {
           className={`${input} mt-1 block w-full`}
         />
       </label>
+
+      <div>
+        <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">Key</h4>
+        <KeyPicker draft={draft} onChange={onChange} />
+      </div>
 
       <div>
         <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">Voices</h4>
@@ -193,5 +199,41 @@ function SectionRow({
         </span>
       </div>
     </li>
+  );
+}
+
+/** Tonic and mode of the piece's key; "not set" clears it. */
+function KeyPicker({ draft, onChange }: { draft: PieceDraft; onChange: (draft: PieceDraft) => void }) {
+  const key = draft.piece.key ?? null;
+  const tonics: readonly string[] = key && !TONICS.some((t) => t === key.tonic) ? [...TONICS, key.tonic] : TONICS;
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <select
+        aria-label="Key tonic"
+        value={key?.tonic ?? ""}
+        onChange={(e) =>
+          onChange(draft.setKey(e.target.value ? { tonic: e.target.value, mode: key?.mode ?? "major" } : null))
+        }
+        className={input}
+      >
+        <option value="">not set</option>
+        {tonics.map((tonic) => (
+          <option key={tonic} value={tonic}>
+            {tonic}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label="Key mode"
+        value={key?.mode ?? "major"}
+        disabled={key === null}
+        onChange={(e) => key && onChange(draft.setKey({ ...key, mode: e.target.value as Mode }))}
+        className={`${input} disabled:opacity-50`}
+      >
+        <option value="major">major</option>
+        <option value="minor">minor</option>
+      </select>
+      <span className="text-xs text-zinc-500">Suggested from the score when it is imported; used to colour the piano roll.</span>
+    </div>
   );
 }

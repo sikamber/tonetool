@@ -13,6 +13,7 @@ from pathlib import Path
 
 import music21 as m21
 
+from .keys import KeySuggester
 from .lyrics import LyricVerses
 from .models import Lyric, Measure, Note, Piece, Section, Syllabic, Track, VoiceKind, VoiceMeasure
 from .structure import SuggestedStructure, read_musicxml_root
@@ -91,6 +92,7 @@ class ScoreImporter:
             measures=measures,
             tracks=tracks,
             sections=sections,
+            key=KeySuggester(score).suggest(),
             warnings=[*self.warnings, *structure.warnings],
         )
         LyricVerses(piece).assign()
