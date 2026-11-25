@@ -104,6 +104,24 @@ The API behind it: `POST /api/pieces` (upload), `PUT /api/pieces/{id}` (edit), `
 /api/pieces/{id}/score` (replace score), `DELETE /api/pieces/{id}`. There is no login, so keep the
 server on localhost (its default) and do not expose it.
 
+**Instruments** (`frontend/src/audio/instruments/`) are synthesised from standard Web Audio nodes, so live
+playback and the offline export use the same code: *Choir ooh* and *aah* (detuned sawtooths through formant
+filters, vibrato that sets in after a straight start, a little breath noise; the first formant follows
+high notes), *Strings*, *Organ*, *Flute* (breath noise, vibrato) and *Soft piano* (slightly sharp upper
+partials that decay faster than the low ones, a hammer thump). Their levels are calibrated to be about
+equally loud. The tests model each instrument's node graph and spectrum rather than render audio, so they
+catch clicks, leaks, loudness mismatches and misplaced formants, but not whether it sounds good; that
+needs listening.
+
+If synthesis is not good enough, real samples fit behind the same `Instrument` interface:
+1. a **SoundFont** synth (e.g. `spessasynth_lib`) with a permissively licensed SF2 (GeneralUser GS,
+   FluidR3) that has choir and voice patches. 30 MB or more, lazy-loaded; check the licence and that
+   offline export works with an AudioWorklet synth;
+2. a **sampler** (Tone.js `Sampler`, WebAudioFont) with a small multisampled set: lighter, but choir
+   vowels need good samples and licences vary;
+3. **your own recordings**: sustained vowels every few semitones for each voice type. Best for a choir
+   app, and the most work.
+
 Notes: browsers only start audio after a click; on iPhones the hardware silent switch also mutes
 Web Audio. Live playback is scaled by 1/sqrt(voices) for headroom; exports are not, and are only
 scaled down if they would clip.
