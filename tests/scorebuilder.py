@@ -3,6 +3,10 @@ without needing real scores checked into the repo.
 
 Each measure is a ``Bar``; per-part notes are given as ``"C4/q D4/q E4/h"`` strings
 (pitch/duration, duration in w h q e). Structural markings are fields on ``Bar``.
+
+A note can end with lyrics in braces, one per lyric line separated by ``;``: ``C5/q{Ju-;Hjer-}``.
+A trailing ``-`` means the word goes on in the next syllable, a leading ``-`` that it continues from
+the previous one (both: middle). A syllable may start with a verse label as scores do: ``{1.Ju-}``.
 """
 
 from __future__ import annotations
@@ -45,8 +49,25 @@ def _pitch_xml(token: str) -> str:
     return f"<pitch><step>{step}</step>{alter_xml}<octave>{octave}</octave></pitch>"
 
 
+def _split_lyrics(token: str) -> tuple[str, list[str]]:
+    """'C5/q~{a-;b}' -> ('C5/q~', ['a-', 'b'])."""
+    match = re.fullmatch(r"(.*?)\{([^}]*)\}", token)
+    return (match.group(1), match.group(2).split(";")) if match else (token, [])
+
+
+def _lyric_xml(number: int, syllable: str) -> str:
+    """``<lyric>`` for one syllable; the leading/trailing hyphens give its syllabic position."""
+    begins, continues = not syllable.startswith("-"), syllable.endswith("-")
+    syllabic = {(True, True): "begin", (False, True): "middle", (False, False): "end"}.get((begins, continues))
+    text = escape(syllable.strip("-"))
+    flag = f"<syllabic>{syllabic}</syllabic>" if syllabic else ""
+    return f'<lyric number="{number}">{flag}<text>{text}</text></lyric>'
+
+
 def _note_xml(token: str, voice: int = 1) -> str:
-    """Token grammar: [+]['~']PITCH/DUR['~']  (+ chord member, leading ~ tie stop, trailing ~ tie start)."""
+    """Token grammar: [+]['~']PITCH/DUR['~']['{lyric|lyric}']  (+ chord member, leading ~ tie stop, trailing ~ tie start)."""
+    token, syllables = _split_lyrics(token)
+    lyrics = "".join(_lyric_xml(n, s) for n, s in enumerate(syllables, start=1) if s)
     chord = token.startswith("+")
     token = token.lstrip("+")
     tie_stop, tie_start = token.startswith("~"), token.endswith("~")
@@ -57,14 +78,16 @@ def _note_xml(token: str, voice: int = 1) -> str:
     notations = f"<notations>{tied}</notations>" if tied else ""
     return (
         f"<note>{'<chord/>' if chord else ''}{body}<duration>{int(DURATIONS[dur] * DIVISIONS)}</duration>"
-        f"{ties}<voice>{voice}</voice><type>{TYPES[dur]}</type>{notations}</note>"
+        f"{ties}<voice>{voice}</voice><type>{TYPES[dur]}</type>{notations}{lyrics}</note>"
     )
 
 
 def _voice_length(tokens: list[str]) -> int:
     """Total divisions of a voice (chord members add no time)."""
     return sum(
-        int(DURATIONS[t.lstrip("+").strip("~").partition("/")[2]] * DIVISIONS) for t in tokens if not t.startswith("+")
+        int(DURATIONS[_split_lyrics(t)[0].lstrip("+").strip("~").partition("/")[2]] * DIVISIONS)
+        for t in tokens
+        if not t.startswith("+")
     )
 
 

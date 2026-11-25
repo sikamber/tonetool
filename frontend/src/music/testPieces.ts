@@ -1,7 +1,10 @@
 import type { Piece } from "../api/types";
 
-/** [pitch, offset, duration, tied?] in quarter notes. */
-export type NoteSpec = [number, number, number, boolean?];
+/** A syllable on a lyric line: ["1", "Ju", "begin"]. */
+export type LyricSpec = [number: string, text: string, syllabic?: "single" | "begin" | "middle" | "end"];
+
+/** [pitch, offset, duration, tied?, lyrics?] in quarter notes. */
+export type NoteSpec = [number, number, number, boolean?, LyricSpec[]?];
 
 export interface BarSpec {
   notes: Record<string, NoteSpec[]>; // track id -> notes
@@ -14,6 +17,8 @@ export function makePiece(opts: {
   tracks?: string[];
   bars: BarSpec[];
   sections: [number, number][][];
+  /** The lyric line each section sings, by section index (omitted or null: none). */
+  lyricNumbers?: (string | null)[];
   tempo?: number;
 }): Piece {
   const tracks = opts.tracks ?? ["T0"];
@@ -28,6 +33,7 @@ export function makePiece(opts: {
       id: `s${i + 1}`,
       name: `S${i + 1}`,
       source: "auto",
+      lyric_number: opts.lyricNumbers?.[i] ?? null,
       segments: segments.map(([s, e]) => ({ start: s, end: e })),
     })),
     measures: opts.bars.map((bar, index) => {
@@ -44,7 +50,13 @@ export function makePiece(opts: {
         voices: Object.fromEntries(
           tracks.map((id) => [
             id,
-            { notes: (bar.notes[id] ?? []).map(([pitch, offset, duration, tied]) => ({ pitch, offset, duration, tied: tied ?? false })) },
+            { notes: (bar.notes[id] ?? []).map(([pitch, offset, duration, tied, lyrics]) => ({
+              pitch,
+              offset,
+              duration,
+              tied: tied ?? false,
+              lyrics: (lyrics ?? []).map(([number, text, syllabic]) => ({ number, text, syllabic: syllabic ?? "single" })),
+            })) },
           ]),
         ),
       };

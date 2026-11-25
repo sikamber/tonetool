@@ -48,6 +48,23 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * Lyric
+         * @description One syllable sung on a note, for one lyric line of the score.
+         *
+         *     ``number`` is the MusicXML lyric number. It is *not* the verse of the performance: a score may
+         *     use one lyric line for verse 1 and verse 3 (different bars), so ``Section.lyric_number`` says
+         *     which line a section sings. ``syllabic`` is as written in the score and not always reliable
+         *     (some exporters mark a word's first syllable ``middle``); only ``Syllabic.continues`` is used.
+         */
+        Lyric: {
+            /** Number */
+            number: string;
+            /** Text */
+            text: string;
+            /** @default single */
+            syllabic: components["schemas"]["Syllabic"];
+        };
+        /**
          * Measure
          * @description One notated measure (position in the score, not in the performance).
          */
@@ -93,12 +110,14 @@ export interface components {
              * @default false
              */
             tied: boolean;
+            /** Lyrics */
+            lyrics?: components["schemas"]["Lyric"][];
         };
         /** Piece */
         Piece: {
             /**
              * Schema Version
-             * @default 3
+             * @default 4
              */
             schema_version: number;
             /** Title */
@@ -167,7 +186,15 @@ export interface components {
             segments: components["schemas"]["PlaybackSegment"][];
             /** @default auto */
             source: components["schemas"]["Provenance"];
+            /** Lyric Number */
+            lyric_number?: string | null;
         };
+        /**
+         * Syllabic
+         * @description Where a syllable sits in its word, as in MusicXML.
+         * @enum {string}
+         */
+        Syllabic: "single" | "begin" | "middle" | "end";
         /**
          * Track
          * @description One independently mixable line: a single voice.

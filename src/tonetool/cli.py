@@ -14,8 +14,13 @@ from .models import Piece
 
 def cmd_import(args: argparse.Namespace) -> None:
     """Import a MusicXML score, save its piece JSON, and print a summary."""
-    piece = ScoreImporter(args.score).run()
     output = args.output or args.score.with_suffix(".piece.json")
+    kept = None
+    if args.keep_sections:
+        if not output.exists():
+            raise ValueError(f"--keep-sections: {output} does not exist yet")
+        kept = Piece.load(output).sections
+    piece = ScoreImporter(args.score).run(keep_sections=kept)
     piece.save(output)
     print(f"wrote {output}")
     _show(piece)
@@ -31,7 +36,8 @@ def _show(piece: Piece) -> None:
     print(f"  tempo (quarter-note BPM): {', '.join(tempos)}")
     for section in piece.sections:
         bars = section.describe(piece.measures)
-        print(f"  section {section.id}: {section.name} (bars {bars}) [{section.source.value}]")
+        lyrics = f", lyric line {section.lyric_number}" if section.lyric_number else ""
+        print(f"  section {section.id}: {section.name} (bars {bars}{lyrics}) [{section.source.value}]")
     print(f"  playback order: {piece.playback_order.describe(piece.measures)}")
     for warning in piece.warnings:
         print(f"  WARNING: {warning}")
@@ -67,6 +73,11 @@ def main(argv: list[str] | None = None) -> None:
     p_import = sub.add_parser("import", help="MusicXML -> piece.json (with suggested structure)")
     p_import.add_argument("score", type=Path)
     p_import.add_argument("-o", "--output", type=Path)
+    p_import.add_argument(
+        "--keep-sections",
+        action="store_true",
+        help="re-import notes and lyrics but keep the sections already in the output file",
+    )
     p_import.set_defaults(func=cmd_import)
 
     p_show = sub.add_parser("show", help="print tracks, sections, playback order, warnings")

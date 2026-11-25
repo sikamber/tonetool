@@ -18,12 +18,40 @@ from typing import Any, Self
 
 from pydantic import BaseModel, Field, model_validator
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 class Provenance(StrEnum):
     AUTO = "auto"  # suggested by the importer, unreviewed
     USER = "user"  # confirmed or edited by a person
+
+
+class Syllabic(StrEnum):
+    """Where a syllable sits in its word, as in MusicXML."""
+
+    SINGLE = "single"  # a whole word
+    BEGIN = "begin"
+    MIDDLE = "middle"
+    END = "end"
+
+    @property
+    def continues(self) -> bool:
+        """Whether the word goes on in the next syllable."""
+        return self in (Syllabic.BEGIN, Syllabic.MIDDLE)
+
+
+class Lyric(BaseModel):
+    """One syllable sung on a note, for one lyric line of the score.
+
+    ``number`` is the MusicXML lyric number. It is *not* the verse of the performance: a score may
+    use one lyric line for verse 1 and verse 3 (different bars), so ``Section.lyric_number`` says
+    which line a section sings. ``syllabic`` is as written in the score and not always reliable
+    (some exporters mark a word's first syllable ``middle``); only ``Syllabic.continues`` is used.
+    """
+
+    number: str
+    text: str
+    syllabic: Syllabic = Syllabic.SINGLE
 
 
 class Note(BaseModel):
@@ -33,6 +61,8 @@ class Note(BaseModel):
     offset: float  # quarter notes from the start of the measure it sits in
     duration: float  # quarter notes, as notated: a tied note is not merged with its neighbours
     tied: bool = False  # continues a note held from before; has no attack of its own
+    # the syllables sung on this note, one per lyric line; for a chord only its first note has them
+    lyrics: list[Lyric] = Field(default_factory=list)
 
 
 class VoiceMeasure(BaseModel):
@@ -193,6 +223,8 @@ class Section(BaseModel):
     name: str
     segments: list[PlaybackSegment] = Field(min_length=1)
     source: Provenance = Provenance.AUTO
+    # which lyric line (``Lyric.number``) is sung in this section; None if it has no lyrics
+    lyric_number: str | None = None
 
     def measure_sequence(self) -> list[int]:
         """The measure indices of this section in the order they are played."""
@@ -303,6 +335,9 @@ class Piece(BaseModel):
         if version == 2:
             data = cls._upgrade_v2(data)
             version = data["schema_version"]
+        if version == 3:
+            data["schema_version"] = SCHEMA_VERSION  # v4 only adds optional lyric fields
+            version = SCHEMA_VERSION
         if version != SCHEMA_VERSION:
             raise ValueError(
                 f"{path}: piece has schema version {version}, this version reads "
@@ -312,11 +347,11 @@ class Piece(BaseModel):
 
     @staticmethod
     def _upgrade_v2(data: dict[str, Any]) -> dict[str, Any]:
-        """Schema 2 stored a resolved ``bpm`` on every measure; 3 stores ``tempo`` only on changes."""
+        """Schema 2 stored a resolved ``bpm`` on every measure; 3 stores ``tempo`` only on changes (returns v3)."""
         previous: float | None = None
         for measure in data["measures"]:
             bpm = measure.pop("bpm")
             measure["tempo"] = bpm if bpm != previous else None
             previous = bpm
-        data["schema_version"] = SCHEMA_VERSION
+        data["schema_version"] = 3
         return data

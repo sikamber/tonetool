@@ -2,6 +2,7 @@ import { usePiece } from "../api/hooks";
 import type { Piece } from "../api/types";
 import { usePlayer } from "../audio/hooks";
 import { ExportPanel } from "./ExportPanel";
+import { LyricsPane } from "./LyricsPane";
 import { SectionStrip } from "./SectionStrip";
 import { TransportBar } from "./TransportBar";
 import { VoiceMixer } from "./VoiceMixer";
@@ -21,6 +22,7 @@ function PieceView({ piece }: { piece: Piece }) {
       <h2 className="text-xl font-medium">{piece.title}</h2>
       <TransportBar player={player} />
       <SectionStrip piece={piece} player={player} />
+      <LyricsPane piece={piece} player={player} />
       <VoiceMixer piece={piece} player={player} />
       <ExportPanel piece={piece} player={player} />
       {piece.warnings && piece.warnings.length > 0 && (

@@ -5,7 +5,7 @@
  * notated structure into performance time. Differences from the Python version: the sequence is
  * built section by section (so every span knows its section), and notes are sorted by start time.
  */
-import type { Measure, Piece, Section } from "../api/types";
+import type { Measure, Note, Piece, Section } from "../api/types";
 
 export interface MeasureSpan {
   position: number; // 0-based position in the performed sequence
@@ -15,6 +15,13 @@ export interface MeasureSpan {
   endSec: number;
   beatSecs: number;
   beats: number;
+}
+
+/** The syllable sung on a note, in the lyric line of its section. */
+export interface Syllable {
+  text: string;
+  /** True if the word goes on in the next syllable. */
+  continues: boolean;
 }
 
 export interface ScheduledNote {
@@ -27,6 +34,8 @@ export interface ScheduledNote {
   sectionId: string;
   /** False: enters a note that is already held, so no re-strike is wanted. */
   attack: boolean;
+  /** What is sung on this note in its section, or null. */
+  syllable: Syllable | null;
 }
 
 export interface SectionSpan {
@@ -105,6 +114,14 @@ export function measureBpms(piece: Piece): number[] {
 
 const EPSILON = 1e-6;
 
+/** The syllable of `note` on the lyric line that `section` sings (see `Section.lyric_number`). */
+function syllableOf(note: Note, section: Section): Syllable | null {
+  if (section.lyric_number == null) return null;
+  const lyric = note.lyrics?.find((l) => l.number === section.lyric_number);
+  if (!lyric) return null;
+  return { text: lyric.text, continues: lyric.syllabic === "begin" || lyric.syllabic === "middle" };
+}
+
 /**
  * Builds a `Timeline` from a piece. `tempoScale` multiplies the notated tempo (0.8 = 20% slower).
  *
@@ -166,6 +183,7 @@ export class TimelineBuilder {
               position,
               sectionId: section.id,
               attack: !note.tied,
+              syllable: syllableOf(note, section),
             };
             notes.push(scheduled);
             held.set(key, scheduled);

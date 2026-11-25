@@ -8,17 +8,21 @@ document-order index; the importer refuses to continue if the counts disagree.
 from __future__ import annotations
 
 import hashlib
+import re
 from pathlib import Path
 
 import music21 as m21
 
-from .models import Measure, Note, Piece, Track, VoiceKind, VoiceMeasure
+from .lyrics import LyricVerses
+from .models import Lyric, Measure, Note, Piece, Section, Syllabic, Track, VoiceKind, VoiceMeasure
 from .structure import SuggestedStructure, read_musicxml_root
 
 DEFAULT_BPM = 100.0
 # music21 picks its parser from the extension (e.g. ".zip" is treated as MuseData and crashes on
 # MusicXML), and the structure reader only knows these, so anything else is refused up front.
 MUSICXML_SUFFIXES = (".musicxml", ".xml", ".mxl")
+# Scores often type the verse into the first syllable ("1.Ju", "3) Ju"); that is a label, not text.
+VERSE_LABEL = re.compile(r"^\s*\d+\s*[.)]\s*")
 
 
 class ScoreImporter:
@@ -29,8 +33,12 @@ class ScoreImporter:
         self.path = path
         self.warnings: list[str] = []
 
-    def run(self) -> Piece:
-        """Parse the score and return a ``Piece`` with suggested sections and playback order."""
+    def run(self, keep_sections: list[Section] | None = None) -> Piece:
+        """Parse the score and return a ``Piece`` with suggested sections and playback order.
+
+        ``keep_sections`` (say, from an earlier import of the same score) replaces the suggestions,
+        so that re-importing to pick up new data does not undo a person's work on the structure.
+        """
         if self.path.is_dir():
             raise ValueError(
                 f"{self.path} is a directory, not a file; point at the MusicXML file inside it"
@@ -62,14 +70,14 @@ class ScoreImporter:
         # printed numbers come from the XML (music21 renumbers some cases)
         for measure, collection in zip(measures, structure.measure_mark_collections):
             measure.number = collection.number
-        sections = structure.suggest_sections()
+        sections = keep_sections if keep_sections is not None else structure.suggest_sections()
 
         title = (
             score.metadata.title
             if score.metadata and score.metadata.title
             else self.path.stem
         )
-        return Piece(
+        piece = Piece(
             title=title,
             source_file=self.path.name,
             xml_sha256=hashlib.sha256(self.path.read_bytes()).hexdigest(),
@@ -78,6 +86,8 @@ class ScoreImporter:
             sections=sections,
             warnings=[*self.warnings, *structure.warnings],
         )
+        LyricVerses(piece).assign()
+        return piece
 
     # -- measures and tempo -------------------------------------------------------------------
 
@@ -210,10 +220,12 @@ class ScoreImporter:
             for element in container.notes:
                 offset = float(element.getOffsetInHierarchy(measure))
                 duration = float(element.duration.quarterLength)
+                lyrics = self._lyrics_of(element)  # a chord is sung once: its first note carries them
                 for pitch, tied in self._pitches_of(element):
                     notes.append(
-                        Note(pitch=pitch, tied=tied, offset=offset, duration=duration)
+                        Note(pitch=pitch, tied=tied, offset=offset, duration=duration, lyrics=lyrics)
                     )
+                    lyrics = []
             notes.sort(key=lambda n: (n.offset, n.pitch))
         return by_voice
 
@@ -226,6 +238,19 @@ class ScoreImporter:
         if any(isinstance(el, (m21.note.Note, m21.chord.Chord)) for el in measure):
             voices.insert(0, ("1", measure))
         return voices
+
+    @staticmethod
+    def _lyrics_of(element: m21.note.GeneralNote) -> list[Lyric]:
+        """The syllables on a note or chord, with verse labels such as "1." taken off the text."""
+        lyrics: list[Lyric] = []
+        for lyric in element.lyrics:
+            text = VERSE_LABEL.sub("", lyric.text or "").strip()
+            if not text:
+                continue
+            lyrics.append(
+                Lyric(number=str(lyric.number), text=text, syllabic=Syllabic(lyric.syllabic or "single"))
+            )
+        return lyrics
 
     @staticmethod
     def _pitches_of(element: m21.note.GeneralNote) -> list[tuple[int, bool]]:
