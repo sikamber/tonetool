@@ -6,7 +6,7 @@
  * say whether the result sounds good. That takes ears.
  */
 import { describe, expect, it } from "vitest";
-import { INSTRUMENTS, instrumentById, type NoteEvent } from "./index";
+import { DEFAULT_INSTRUMENT_ID, INSTRUMENTS, instrumentById, type NoteEvent } from "./index";
 import { db, FakeContext, FakeGain, FakeParam, FakeSource, soundAt, type Sound } from "./testing/graph";
 
 /** The modelled loudness (RMS) every instrument is calibrated to. */
@@ -216,7 +216,9 @@ describe("instrument list", () => {
   it("has unique ids and a default that exists", () => {
     const ids = INSTRUMENTS.map((i) => i.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).toContain("choir");
+    expect(ids).toContain(DEFAULT_INSTRUMENT_ID);
+    expect(DEFAULT_INSTRUMENT_ID).toBe("piano");
+    expect(ids[0]).toBe(DEFAULT_INSTRUMENT_ID); // the default leads the picker
     expect(() => instrumentById("kazoo")).toThrow(/no instrument/);
   });
 });

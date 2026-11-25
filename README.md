@@ -108,7 +108,8 @@ server on localhost (its default) and do not expose it.
 playback and the offline export use the same code: *Choir ooh* and *aah* (detuned sawtooths through formant
 filters, vibrato that sets in after a straight start, a little breath noise; the first formant follows
 high notes), *Strings*, *Organ*, *Flute* (breath noise, vibrato) and *Soft piano* (slightly sharp upper
-partials that decay faster than the low ones, a hammer thump). Their levels are calibrated to be about
+partials that decay faster than the low ones, a hammer thump). The piano is the default for every voice and
+for the practice-set zip. Their levels are calibrated to be about
 equally loud. The tests model each instrument's node graph and spectrum rather than render audio, so they
 catch clicks, leaks, loudness mismatches and misplaced formants, but not whether it sounds good; that
 needs listening.

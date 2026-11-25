@@ -13,6 +13,7 @@ export { midiToHz } from "./types";
  * the timbre, not the volume.
  */
 export const INSTRUMENTS: readonly Instrument[] = [
+  new PianoInstrument(0.729),
   new ChoirInstrument({
     id: "choir",
     label: "Choir ooh",
@@ -50,10 +51,10 @@ export const INSTRUMENTS: readonly Instrument[] = [
     vibrato: { hz: 5, cents: 10, delay: 0.4, ramp: 0.4 },
     breath: { level: 0.18, centre: 3, q: 1.5 },
   }),
-  new PianoInstrument(0.729),
 ];
 
-export const DEFAULT_INSTRUMENT_ID = "choir";
+/** What every voice plays until it is changed, and in the practice-set export. */
+export const DEFAULT_INSTRUMENT_ID = "piano";
 
 export function instrumentById(id: string): Instrument {
   const found = INSTRUMENTS.find((i) => i.id === id);
