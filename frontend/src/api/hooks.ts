@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
-import type { Piece, PieceEdits } from "./types";
+import type { Piece, PieceEdits, SessionStatus } from "./types";
 
 export const usePieces = () => useQuery({ queryKey: ["pieces"], queryFn: api.listPieces });
 
@@ -45,4 +45,28 @@ export function useReplaceScore(id: string) {
 export function useDeletePiece(id: string) {
   const refresh = useRefreshList();
   return useMutation({ mutationFn: () => api.deletePiece(id), onSuccess: refresh });
+}
+
+export const useSession = () => useQuery({ queryKey: ["session"], queryFn: api.session });
+
+export function useLogin() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ username, password }: { username: string; password: string }) => api.login(username, password),
+    onSuccess: (status: SessionStatus) => {
+      queryClient.setQueryData(["session"], status);
+      return queryClient.invalidateQueries({ queryKey: ["pieces"] });
+    },
+  });
+}
+
+export function useLogout() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.logout(),
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: ["pieces"] }); // what was loaded belongs to the user who left
+      queryClient.setQueryData(["session"], { auth_required: true, authenticated: false, username: null } satisfies SessionStatus);
+    },
+  });
 }

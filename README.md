@@ -139,6 +139,47 @@ ignores them and always uses the defaults. It contains:
 All files have the same length, so they stay in sync when you switch between them. A piece with a
 single voice only gets the tutti file.
 
+## Deployment (Docker behind Caddy)
+
+One image serves the API and the built frontend; Caddy in front gives it HTTPS. One user can log in.
+
+```bash
+docker build -t tonetool .
+docker run --rm -it tonetool tonetool hash-password     # asks for the password, prints the hash
+docker run --rm tonetool tonetool make-secret           # prints a random secret for the cookies
+cp .env.example .env                                    # fill in domain, username, hash and secret
+docker compose up -d --build
+```
+
+Put the values in `.env` in single quotes if they contain `$` or spaces. The domain must point at the
+machine with ports 80 and 443 open for Caddy to get a real certificate; with `TONETOOL_DOMAIN=localhost`
+it makes a private one (the browser warns). Only Caddy is published; the app is reachable only on the
+compose network.
+
+- **Data** lives in the `tonetool-data` volume at `/data/library` (scores and `piece.json`, plus `.trash`).
+  Back it up with `docker compose exec app tar czf - -C /data . > tonetool-data.tgz`; restore by
+  piping it back into `tar xzf - -C /data` in the same container.
+- **Update**: `git pull && docker compose up -d --build`. **Change the password**: make a new hash,
+  edit `.env`, `docker compose up -d`.
+- **Without Docker**: build the frontend (`cd frontend && npm run build`), set `static_dir`, `[auth]` and
+  `library` in `tonetool.toml` (see `tonetool.example.toml`), and run `uv run tonetool serve --host ...`
+  behind your own HTTPS proxy. `serve` refuses an address other than localhost if no login is set up.
+
+What is in place: uploads are checked before they are parsed (content must match the name; archives
+are limited in size, entries and file names; XML entity declarations are refused and the parser never
+loads a DTD or the network; the score must be partwise MusicXML of a sane size; the library has a
+limit); the login uses scrypt-hashed passwords and signed, expiring, `HttpOnly`, `SameSite=Strict`,
+`Secure` cookies, with the same error for a wrong user and a wrong password and a lockout after five
+failed attempts in five minutes; the library API needs the login; and responses carry security headers
+(`nosniff`, no framing, a content security policy).
+
+What is not: there is one user and no password reset (change the hash and restart); the lockout is
+per client address (as the proxy reports it; if everything arrives through one NAT address, such as
+Docker's bridge on some hosts, everyone shares one counter) and kept in memory (it resets on restart); there is no CSRF token beyond
+`SameSite=Strict` cookies; a malicious but valid-looking score can still make an import slow, since an
+import has no time limit; there are no automatic backups; and the container has no resource limits
+(add them in `docker-compose.yml` if the machine is shared).
+
 ## Known limits
 
 - Audio is a plain additive-synth tone (no soundfont yet); the instruments are small oscillator presets.

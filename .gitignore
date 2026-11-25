@@ -185,3 +185,4 @@ frontend/dist/
 frontend/openapi.json
 pieces/
 library/
+.env

@@ -20,6 +20,7 @@ from ..models import Piece, Section, VoiceKind
 from .config import ServerConfig
 from .editor import PieceEditor, PieceEdits
 from .errors import ClientError, Conflict
+from .uploads import ScoreValidator
 
 Origin = Literal["library", "linked"]
 
@@ -70,6 +71,7 @@ class PieceLibrary:
     def __init__(self, config: ServerConfig) -> None:
         """Remember the config; pieces are looked up on demand so new imports show up at once."""
         self._config = config
+        self._validator = ScoreValidator(config.max_unpacked_mb)
         self._cache: dict[str, tuple[float, Piece]] = {}
         self._lock = threading.RLock()
 
@@ -113,7 +115,10 @@ class PieceLibrary:
         name = self._score_name(filename)
         if piece_id is not None and not PIECE_ID.fullmatch(piece_id):
             raise ClientError(f"invalid id {piece_id!r}: use letters, digits, '_' and '-'")
+        self._validator.check(name, data)
         with self._lock:
+            if len(self._stored()) >= self._config.max_pieces:
+                raise Conflict(f"the library is full ({self._config.max_pieces} pieces); delete one first")
             library.mkdir(parents=True, exist_ok=True)
             staging = Path(tempfile.mkdtemp(prefix=".incoming-", dir=library))
             try:
@@ -134,6 +139,7 @@ class PieceLibrary:
         The new score must have the same number of bars and parts, since the sections refer to bars.
         """
         name = self._score_name(filename)
+        self._validator.check(name, data)
         with self._lock:
             stored = self._entry(piece_id)
             old = self.get(piece_id)

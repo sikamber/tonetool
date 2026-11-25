@@ -5,7 +5,23 @@
 # Pieces imported in the app are stored here, one folder per piece (score + piece.json).
 # Leave this out to turn importing off. Deleted pieces go to <library>/.trash.
 library = "library"
-# max_upload_mb = 25
+# max_upload_mb = 25       # largest upload
+# max_unpacked_mb = 100    # what a compressed .mxl may expand to
+# max_pieces = 200         # most pieces in the library
+
+# The built frontend (cd frontend && npm run build), so that this one server shows the whole app:
+# static_dir = "frontend/dist"
+
+# A login, for anything other than your own machine. Without this section there is no login, and
+# `tonetool serve` will only listen on localhost. Make the values with `tonetool hash-password` and
+# `tonetool make-secret`; each can also be set with TONETOOL_USERNAME / TONETOOL_PASSWORD_HASH /
+# TONETOOL_SECRET (which win over this file), so the secrets need not be kept here.
+# [auth]
+# username = "choir"
+# password_hash = "scrypt:..."
+# secret = "a long random string"
+# session_hours = 12
+# cookie_secure = true       # false only for a plain-HTTP trial: the cookie is then sent unencrypted
 
 # Pieces you link yourself (these can be edited in the app but not deleted):
 [[pieces]]

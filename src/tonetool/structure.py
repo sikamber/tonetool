@@ -21,17 +21,30 @@ _JUMP_TEXT = re.compile(
 )
 
 
+def hardened_parser() -> etree.XMLParser:
+    """An XML parser that is safe to point at a file somebody else made.
+
+    Entities are not resolved (so no ``&xxe;`` reading local files and no entity bombs), the DTD
+    that MusicXML files point to is neither loaded nor fetched, nothing touches the network, and
+    absurdly deep or huge documents are refused.
+    """
+    return etree.XMLParser(
+        resolve_entities=False, no_network=True, load_dtd=False, dtd_validation=False, huge_tree=False
+    )
+
+
 def read_musicxml_root(path: Path) -> etree._Element:
     """Parse .musicxml/.xml, or the main document inside a compressed .mxl."""
+    parser = hardened_parser()
     if path.suffix.lower() == ".mxl":
         with zipfile.ZipFile(path) as archive:
-            container = etree.fromstring(archive.read("META-INF/container.xml"))
+            container = etree.fromstring(archive.read("META-INF/container.xml"), parser)
             rootfile = container.find(".//rootfile")
             full_path = rootfile.get("full-path") if rootfile is not None else None
             if full_path is None:
                 raise ValueError(f"{path}: META-INF/container.xml has no rootfile")
-            return etree.fromstring(archive.read(full_path))
-    return etree.parse(str(path)).getroot()
+            return etree.fromstring(archive.read(full_path), parser)
+    return etree.parse(str(path), parser).getroot()
 
 
 def _parse_ending_numbers(raw: str) -> set[int]:

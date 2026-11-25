@@ -1,0 +1,4 @@
+# The config inside the container. The login comes from environment variables
+# (TONETOOL_USERNAME, TONETOOL_PASSWORD_HASH, TONETOOL_SECRET), see .env.example.
+library = "/data/library"
+static_dir = "/app/frontend/dist"

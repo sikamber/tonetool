@@ -1,4 +1,4 @@
-"""Thin command-line wrapper: ``tonetool import|show|serve|openapi``. Logic lives in the package."""
+"""Thin command-line wrapper: ``tonetool import|show|serve|hash-password|make-secret|openapi``. Logic lives in the package."""
 
 from __future__ import annotations
 
@@ -54,8 +54,39 @@ def cmd_serve(args: argparse.Namespace) -> None:
     import uvicorn
 
     from .api.app import create_app
+    from .api.auth import require_auth_for_public_host
+    from .api.config import ServerConfig
 
-    uvicorn.run(create_app(args.config), host=args.host, port=args.port)
+    config = ServerConfig.load(args.config)
+    require_auth_for_public_host(args.host, config)
+    uvicorn.run(
+        create_app(config),
+        host=args.host,
+        port=args.port,
+        proxy_headers=True,  # behind a proxy, the client address comes from its X-Forwarded-For
+        forwarded_allow_ips=args.forwarded_allow_ips,
+    )
+
+
+def cmd_hash_password(args: argparse.Namespace) -> None:
+    """Ask for a password and print its hash, for the config's ``password_hash``."""
+    import getpass
+
+    from .api.auth import PasswordHasher
+
+    password = getpass.getpass("Password: ")
+    if password != getpass.getpass("Again: "):
+        raise ValueError("the two passwords differ")
+    if len(password) < 10:
+        raise ValueError("use at least 10 characters")
+    print(PasswordHasher.hash(password))
+
+
+def cmd_make_secret(args: argparse.Namespace) -> None:
+    """Print a random secret for signing session cookies."""
+    import secrets
+
+    print(secrets.token_urlsafe(48))
 
 
 def cmd_openapi(args: argparse.Namespace) -> None:
@@ -89,9 +120,20 @@ def main(argv: list[str] | None = None) -> None:
     p_serve.add_argument(
         "--config", type=Path, default=Path(os.environ.get("TONETOOL_CONFIG", "tonetool.toml"))
     )
-    p_serve.add_argument("--host", default="127.0.0.1")
+    p_serve.add_argument("--host", default="127.0.0.1", help="refuses non-local addresses unless a login is set up")
     p_serve.add_argument("--port", type=int, default=8000)
+    p_serve.add_argument(
+        "--forwarded-allow-ips",
+        default="127.0.0.1",
+        help="proxies whose X-Forwarded-For is trusted (comma separated, or * if only the proxy can reach the server)",
+    )
     p_serve.set_defaults(func=cmd_serve)
+
+    p_hash = sub.add_parser("hash-password", help="hash a password for the config's [auth] password_hash")
+    p_hash.set_defaults(func=cmd_hash_password)
+
+    p_secret = sub.add_parser("make-secret", help="print a random secret for signing session cookies")
+    p_secret.set_defaults(func=cmd_make_secret)
 
     p_openapi = sub.add_parser("openapi", help="print the API's OpenAPI schema as JSON")
     p_openapi.set_defaults(func=cmd_openapi)

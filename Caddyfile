@@ -1,0 +1,17 @@
+# HTTPS in front of the app. Caddy gets and renews the certificate itself for a real domain
+# (ports 80 and 443 must reach this machine); for "localhost" it makes a private one.
+{$TONETOOL_DOMAIN:localhost} {
+	encode zstd gzip
+
+	# a little above the app's own upload limit, so the app can answer with a proper message
+	request_body {
+		max_size 30MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	reverse_proxy app:8000
+}

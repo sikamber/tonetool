@@ -1,4 +1,4 @@
-import type { Piece, PieceEdits, PieceSummary } from "./types";
+import type { Piece, PieceEdits, PieceSummary, SessionStatus } from "./types";
 
 /** An error response from the server, with its message(s) flattened to readable strings. */
 export class ApiError extends Error {
@@ -10,6 +10,9 @@ export class ApiError extends Error {
     this.name = "ApiError";
   }
 }
+
+/** Whether an error means "log in first". */
+export const isUnauthorized = (error: unknown): boolean => error instanceof ApiError && error.status === 401;
 
 /**
  * Readable messages from a FastAPI error body's `detail`: a string, or a list of `{loc, msg}` for
@@ -50,7 +53,16 @@ const withFile = (file: File): RequestInit => {
   return { method: "POST", body: form };
 };
 
+const postJson = (body: unknown): RequestInit => ({
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
+
 export const api = {
+  session: () => request<SessionStatus>("/api/session"),
+  login: (username: string, password: string) => request<SessionStatus>("/api/session", postJson({ username, password })),
+  logout: () => request<void>("/api/session", { method: "DELETE" }),
   listPieces: () => request<PieceSummary[]>("/api/pieces"),
   getPiece: (id: string) => request<Piece>(piecePath(id)),
   importPiece: (file: File) => request<PieceSummary>("/api/pieces", withFile(file)),

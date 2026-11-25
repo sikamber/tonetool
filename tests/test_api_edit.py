@@ -87,7 +87,7 @@ def test_a_wrong_extension_is_refused(client: TestClient, library: Path):
 
 def test_an_unreadable_score_is_refused_and_leaves_nothing_behind(client: TestClient, library: Path):
     response = upload(client, b"<this is not xml", name="broken.musicxml")
-    assert response.status_code == 422 and "could not read" in response.json()["detail"]
+    assert response.status_code == 422 and "not valid XML" in response.json()["detail"]
     assert folders(library) == []
 
 
