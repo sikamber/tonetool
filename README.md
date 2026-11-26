@@ -145,12 +145,19 @@ single voice only gets the tutti file.
 One image serves the API and the built frontend; Caddy in front gives it HTTPS. One user can log in.
 
 ```bash
-docker build -t tonetool .
-docker run --rm -it tonetool tonetool hash-password     # asks for the password, prints the hash
-docker run --rm tonetool tonetool make-secret           # prints a random secret for the cookies
+docker pull ghcr.io/sikamber/tonetool
+docker run --rm -it ghcr.io/sikamber/tonetool tonetool hash-password   # asks for the password, prints the hash
+docker run --rm ghcr.io/sikamber/tonetool tonetool make-secret         # prints a random secret for the cookies
 cp .env.example .env                                    # fill in domain, username, hash and secret
-docker compose up -d --build
+docker compose up -d
 ```
+
+The server needs only `docker-compose.yml`, `Caddyfile` and `.env`. GitHub Actions (`.github/workflows/image.yml`)
+runs the tests and publishes an x86-64 image to `ghcr.io/sikamber/tonetool` on every push to `main`
+(tags `latest` and the commit SHA) and on `v*` tags (tag `1.2.3`). The package is private at first: make it public in
+the package settings, or `docker login ghcr.io` on the server with a token that has `read:packages`.
+Set `TONETOOL_TAG` in `.env` to pin a version. To build from a checkout instead, add
+`-f docker-compose.build.yml` (`docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`).
 
 Put the values in `.env` in single quotes if they contain `$` or spaces. The domain must point at the
 machine with ports 80 and 443 open for Caddy to get a real certificate; with `TONETOOL_DOMAIN=localhost`
@@ -160,7 +167,7 @@ compose network.
 - **Data** lives in the `tonetool-data` volume at `/data/library` (scores and `piece.json`, plus `.trash`).
   Back it up with `docker compose exec app tar czf - -C /data . > tonetool-data.tgz`; restore by
   piping it back into `tar xzf - -C /data` in the same container.
-- **Update**: `git pull && docker compose up -d --build`. **Change the password**: make a new hash,
+- **Update**: `docker compose pull && docker compose up -d` (or bump `TONETOOL_TAG`). **Change the password**: make a new hash,
   edit `.env`, `docker compose up -d`.
 - **Without Docker**: build the frontend (`cd frontend && npm run build`), set `static_dir`, `[auth]` and
   `library` in `tonetool.toml` (see `tonetool.example.toml`), and run `uv run tonetool serve --host ...`

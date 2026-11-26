@@ -1,7 +1,9 @@
-# Tonetool behind Caddy. Copy .env.example to .env, fill it in, then: docker compose up -d --build
+# Tonetool behind Caddy, using the image published to ghcr.io by .github/workflows/image.yml.
+# Copy .env.example to .env, fill it in, then: docker compose pull && docker compose up -d
+# To build from a checkout instead: docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 services:
   app:
-    build: .
+    image: ghcr.io/sikamber/tonetool:${TONETOOL_TAG:-latest}
     restart: unless-stopped
     environment:
       TONETOOL_USERNAME: ${TONETOOL_USERNAME:?set TONETOOL_USERNAME in .env}
@@ -17,7 +19,8 @@ services:
     image: caddy:2
     restart: unless-stopped
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     ports:
       - "${TONETOOL_HTTP_PORT:-80}:80"
       - "${TONETOOL_HTTPS_PORT:-443}:443"
