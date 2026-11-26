@@ -22,9 +22,9 @@ interface Step {
   alteration: Alteration;
 }
 
-// Seven hues from red (do) to pink (ti), with la purple. A lowered step shares the hue of the step it lowers, but
+// do blue, re purple, mi pink, fa red, sol orange, la yellow, ti green. A lowered step shares the hue of the step it lowers, but
 // darker (mi and me are one colour, mi the brighter); a raised step is brighter.
-const HUES = { do: 0, re: 30, mi: 55, fa: 130, sol: 190, la: 280, ti: 330 } as const;
+const HUES = { do: 220, re: 275, mi: 330, fa: 0, sol: 28, la: 52, ti: 130 } as const;
 
 /** The twelve semitone offsets from the tonic. */
 const STEPS: readonly Step[] = [
@@ -58,7 +58,7 @@ const make = (step: Step, inKey: boolean): NoteColor => {
 };
 
 /**
- * Colours notes by their place in a key: red for do (the tonic) through to pink for ti (la is purple).
+ * Colours notes by their place in a key: do (the tonic) blue, re purple, mi pink, fa red, sol orange, la yellow, ti green.
  *
  * The colour depends only on the interval from the tonic, so major and minor keys share it
  * ("do-based" minor): the minor third is a darker *mi*, i.e. *me*. The mode only decides which notes

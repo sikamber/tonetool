@@ -6,15 +6,10 @@ const C_MAJOR = new KeyColors({ tonic: "C", mode: "major" });
 const hueOf = (colors: KeyColors, pitch: number) => colors.colorOf(pitch).hue;
 
 describe("KeyColors", () => {
-  it("runs from red do to pink ti through the major scale, la purple", () => {
+  it("colours the major scale blue, purple, pink, red, orange, yellow, green", () => {
     const scale = [60, 62, 64, 65, 67, 69, 71].map((p) => C_MAJOR.colorOf(p));
     expect(scale.map((c) => c.syllable)).toEqual(["do", "re", "mi", "fa", "sol", "la", "ti"]);
-    expect(scale[0]!.hue).toBe(0); // red
-    expect(scale[5]!.hue).toBe(280); // la: purple
-    expect(scale[6]!.hue).toBe(330); // ti: pink
-    const hues = scale.map((c) => c.hue);
-    expect(hues).toEqual([...hues].sort((a, b) => a - b)); // hues only go up the rainbow
-    expect(new Set(hues).size).toBe(7);
+    expect(scale.map((c) => c.hue)).toEqual([220, 275, 330, 0, 28, 52, 130]);
     expect(scale.every((c) => c.inKey)).toBe(true);
   });
 
@@ -24,10 +19,10 @@ describe("KeyColors", () => {
     expect(C_MAJOR.colorOf(127).syllable).toBe("sol"); // 127 = G9
   });
 
-  it("is relative to the tonic: do is red in every key", () => {
+  it("is relative to the tonic: do is blue in every key", () => {
     const dMajor = new KeyColors({ tonic: "D", mode: "major" });
     expect(dMajor.colorOf(62).syllable).toBe("do");
-    expect(dMajor.colorOf(62).hue).toBe(0);
+    expect(dMajor.colorOf(62).hue).toBe(220);
     expect(dMajor.colorOf(66).syllable).toBe("mi"); // F#
     expect(dMajor.colorOf(73).syllable).toBe("ti"); // C#
     const bFlat = new KeyColors({ tonic: "Bb", mode: "major" });
@@ -88,7 +83,7 @@ describe("KeyColors", () => {
     expect(names(null)).toEqual([]);
     const legend = C_MAJOR.legend();
     expect(legend.map((c) => c.css)).toEqual([60, 62, 64, 65, 67, 69, 71].map((p) => C_MAJOR.colorOf(p).css));
-    expect(legend[0]!.css).toMatch(/^hsl\(0 /); // red
+    expect(legend[0]!.css).toMatch(/^hsl\(220 /); // blue
     expect(legend.every((c) => c.inKey)).toBe(true);
   });
 });
